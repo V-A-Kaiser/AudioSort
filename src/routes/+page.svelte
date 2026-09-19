@@ -4,6 +4,7 @@
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import { sortChunks, toWav } from "$lib/sort";
+  import { droppable } from "$lib/droppable";
 
   const windows = Array.from({ length: 7 }, (_, index) => 2 ** (index + 10));
   const targets = ["Amplitude", "Frequency"] as const;
@@ -62,7 +63,12 @@
   <h1 class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">AudioSort</h1>
 
   {#if file}
-    <div class="flex w-full max-w-xl flex-col gap-3">
+    <div
+      use:droppable={(dropped) => {
+        if (dropped) file = dropped;
+      }}
+      class="flex w-full max-w-xl flex-col gap-3 rounded-xl outline-2 outline-offset-6 outline-transparent transition-colors data-dragging:outline-neutral-400"
+    >
       <div class="flex items-center gap-3">
         <p class="truncate text-lg text-neutral-200">{file.name}</p>
         <button
