@@ -61,6 +61,8 @@
       .toString()
       .padStart(2, "0")}`;
 
+  const bars = Array.from({ length: 64 }, (_, index) => 12 + 76 * Math.abs(Math.sin(index * 1.7)));
+
   $effect(() => {
     surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
   });
@@ -135,6 +137,17 @@
 <div class="flex w-full max-w-xl flex-col gap-4" class:hidden={!file}>
   <div class="relative" bind:clientWidth={width}>
     <div class="h-32" bind:this={container}></div>
+
+    {#if !duration && !error}
+      <div class="absolute inset-0 flex items-center gap-[2px]">
+        {#each bars as height, bar (bar)}
+          <div
+            class="flex-1 animate-pulse rounded-full bg-neutral-700"
+            style="height: {height}%; animation-delay: {bar * 40}ms"
+          ></div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   {#if error}
