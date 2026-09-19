@@ -65,7 +65,7 @@
   });
 </script>
 
-<main class="flex min-h-screen flex-col items-center gap-10 px-6 pt-24">
+<main class="flex min-h-screen flex-col items-center gap-10 px-6 py-4">
   <h1 class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">AudioSort</h1>
 
   {#if file}
@@ -80,7 +80,7 @@
         <button
           type="button"
           aria-label="Clear file"
-          class="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+          class="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white"
           onclick={() => (file = null)}
         >
           <X size={16} />
