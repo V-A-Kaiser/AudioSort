@@ -27,6 +27,15 @@
   const entry =
     "w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
 
+  const name = "AudioSort";
+  const shuffle = (source: string) =>
+    [...source]
+      .map((character) => ({ character, key: Math.random() }))
+      .sort((a, b) => a.key - b.key)
+      .map(({ character }) => character)
+      .join("");
+
+  let title = $state(name);
   let file = $state<File | null>(null);
   let mode = $state<(typeof modes)[number]>("Tempo");
   let windowSize = $state(65536);
@@ -43,6 +52,21 @@
       ? Math.max(256, Math.round((decoded.sampleRate * 60 * division.beats) / bpm))
       : Math.max(256, Math.round(windowSize) || 65536)
   );
+
+  $effect(() => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let locked = 0;
+    title = shuffle(name);
+
+    const tick = setInterval(() => {
+      locked += 1;
+      title = name.slice(0, locked) + shuffle(name.slice(locked));
+      if (locked >= name.length) clearInterval(tick);
+    }, 70);
+
+    return () => clearInterval(tick);
+  });
 
   $effect(() => {
     const source = file;
@@ -106,7 +130,9 @@
 </script>
 
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
-  <h1 class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">AudioSort</h1>
+  <h1 aria-label={name} class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">
+    {title}
+  </h1>
   <h2 class="font-thin text-neutral-300">It won't sound better, but at least it'll be tidy.</h2>
 
   {#if file}
