@@ -57,6 +57,7 @@
       container,
       height: 128,
       splitChannels: [],
+      backend: "WebAudio",
       waveColor: "#525252",
       progressColor: "#e5e5e5",
       cursorColor: "#fafafa",
@@ -68,15 +69,32 @@
 
     instance.on("ready", (seconds) => (duration = seconds));
     instance.on("timeupdate", (seconds) => (position = seconds));
-    instance.on("play", () => (playing = true));
+    instance.on("play", () => {
+      playing = true;
+
+      const node = (
+        instance.getMediaElement() as unknown as { getGainNode?: () => GainNode }
+      ).getGainNode?.();
+      if (!node) return;
+
+      const context = node.context as AudioContext;
+      void context.resume();
+
+      const begin = context.currentTime;
+      node.gain.cancelScheduledValues(begin);
+      node.gain.setValueAtTime(0, begin);
+      node.gain.linearRampToValueAtTime(1, begin + 0.012);
+    });
     instance.on("pause", () => (playing = false));
     instance.on("finish", () => (playing = false));
     instance.on("error", () => (error = "Could not decode this audio."));
+    instance.on("interaction", () => void instance.play());
 
     void instance.loadBlob(file);
     surfer = instance;
 
     return () => {
+      (instance.getMediaElement() as unknown as { destroy?: () => void }).destroy?.();
       instance.destroy();
     };
   });
