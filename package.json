@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.47.0",
-    "wavesurfer.js": "^7.12.12"
+    "wavesurfer.js": "^7.12.12",
+    "web-audio-beat-detector": "^8.2.39"
   }
 }

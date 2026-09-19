@@ -116,7 +116,9 @@
 
     void instance.loadBlob(
       file,
-      Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index)),
+      Array.from({ length: decoded.numberOfChannels }, (_, index) =>
+        decoded.getChannelData(index).slice()
+      ),
       decoded.duration
     );
     surfer = instance;
