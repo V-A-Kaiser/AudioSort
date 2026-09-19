@@ -13,12 +13,12 @@
   let duration = $state(0);
   let error = $state<string | null>(null);
 
-  const tint = (alpha: number) => {
+  const tint = (lightness: number) => {
     const context = document.createElement("canvas").getContext("2d");
     if (!context || !width) return "#525252";
 
     const gradient = context.createLinearGradient(0, 0, width * Math.max(1, devicePixelRatio), 0);
-    const hue = (fraction: number) => `hsl(${250 - 250 * fraction} 80% 60% / ${alpha})`;
+    const hue = (fraction: number) => `hsl(${250 - 250 * fraction} 100% ${lightness}%)`;
 
     if (order) {
       order.forEach((source, position) => {
@@ -39,7 +39,7 @@
       .padStart(2, "0")}`;
 
   $effect(() => {
-    surfer?.setOptions({ waveColor: tint(0.6), progressColor: tint(1) });
+    surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
   });
 
   $effect(() => {
