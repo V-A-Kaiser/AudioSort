@@ -10,7 +10,7 @@
   const targets = ["Amplitude", "Frequency"] as const;
   const measures = ["Mean", "Peak", "RMS"] as const;
   const directions = ["Ascending", "Descending"] as const;
-  const modes = ["Samples", "Tempo"] as const;
+  const modes = ["Tempo", "Samples"] as const;
   const divisions = [
     { label: "1/16", beats: 0.25 },
     { label: "1/8", beats: 0.5 },
@@ -23,9 +23,11 @@
 
   const field =
     "w-full cursor-pointer appearance-none rounded-lg border border-neutral-700 bg-neutral-900 py-2 pr-9 pl-3 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
+  const entry =
+    "w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
 
   let file = $state<File | null>(null);
-  let mode = $state<(typeof modes)[number]>("Samples");
+  let mode = $state<(typeof modes)[number]>("Tempo");
   let windowSize = $state(65536);
   let bpm = $state(120);
   let division = $state<(typeof divisions)[number]>(divisions[2]);
@@ -36,9 +38,9 @@
   let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
 
   const samples = $derived(
-    mode === "Samples" || !decoded || !(bpm > 0)
-      ? windowSize
-      : Math.max(256, Math.round((decoded.sampleRate * 60 * division.beats) / bpm))
+    mode === "Tempo" && decoded && bpm > 0
+      ? Math.max(256, Math.round((decoded.sampleRate * 60 * division.beats) / bpm))
+      : Math.max(256, Math.round(windowSize) || 65536)
   );
 
   $effect(() => {
@@ -104,6 +106,7 @@
 
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
   <h1 class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">AudioSort</h1>
+  <h2 class="font-thin text-neutral-300">It won't sound better, but at least it'll be tidy.</h2>
 
   {#if file}
     <div
@@ -149,33 +152,14 @@
   <div class="grid w-full max-w-xl grid-cols-2 gap-4">
     <div class="flex flex-col gap-2">
       <span class="flex items-center justify-between text-sm text-neutral-400">
-        Window
+        <span>Window</span>
         {@render modeSwitch()}
       </span>
 
-      {#if mode === "Samples"}
-        <div class="relative">
-          <select bind:value={windowSize} aria-label="Window" class={field}>
-            {#each windows as size (size)}
-              <option value={size}>{size}</option>
-            {/each}
-          </select>
-          <ChevronDown
-            size={16}
-            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
-          />
-        </div>
-      {:else}
+      {#if mode === "Tempo"}
         <div class="grid grid-cols-2 gap-4">
           <label class="flex flex-col gap-1">
-            <input
-              type="number"
-              min="20"
-              max="300"
-              step="0.1"
-              bind:value={bpm}
-              class="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none"
-            />
+            <input type="number" min="20" max="300" step="0.1" bind:value={bpm} class={entry} />
             <span class="text-xs text-neutral-500">BPM</span>
           </label>
 
@@ -194,6 +178,21 @@
             <span class="text-xs text-neutral-500">Division</span>
           </label>
         </div>
+      {:else}
+        <input
+          type="number"
+          min="256"
+          step="1"
+          list="windows"
+          bind:value={windowSize}
+          aria-label="Window"
+          class={entry}
+        />
+        <datalist id="windows">
+          {#each windows as size (size)}
+            <option value={size}></option>
+          {/each}
+        </datalist>
       {/if}
     </div>
 
