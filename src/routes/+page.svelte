@@ -7,16 +7,15 @@
   import { sortChunks, toWav } from "$lib/sort";
   import { droppable } from "$lib/droppable";
 
-  const windows = Array.from({ length: 7 }, (_, index) => 2 ** (index + 10));
   const targets = ["Amplitude", "Frequency"] as const;
   const measures = ["Mean", "Peak", "RMS"] as const;
   const directions = ["Ascending", "Descending"] as const;
   const modes = ["Tempo", "Samples"] as const;
   const divisions = [
-    { label: "1/16", beats: 0.25 },
-    { label: "1/8", beats: 0.5 },
-    { label: "1/4", beats: 1 },
-    { label: "1/2", beats: 2 },
+    { label: "1/16 bar", beats: 0.25 },
+    { label: "1/8 bar", beats: 0.5 },
+    { label: "1/4 bar", beats: 1 },
+    { label: "1/2 bar", beats: 2 },
     { label: "1 bar", beats: 4 },
     { label: "2 bars", beats: 8 },
     { label: "4 bars", beats: 16 }
@@ -35,6 +34,15 @@
       .sort((a, b) => a.key - b.key)
       .map(({ index }) => index);
 
+  const settle = (apply: (value: number) => void) => {
+    let timer: ReturnType<typeof setTimeout>;
+    return (event: Event & { currentTarget: HTMLInputElement }) => {
+      const value = event.currentTarget.valueAsNumber;
+      clearTimeout(timer);
+      timer = setTimeout(() => apply(value), 400);
+    };
+  };
+
   let letters: HTMLElement[] = [];
   let offsets = $state(order.map(() => 0));
   let gliding = $state(false);
@@ -48,6 +56,9 @@
   let direction = $state<(typeof directions)[number]>("Ascending");
   let decoded = $state<AudioBuffer | null>(null);
   let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
+
+  const onWindow = settle((value) => (windowSize = value));
+  const onBpm = settle((value) => (bpm = value));
 
   const samples = $derived(
     mode === "Tempo" && decoded && bpm > 0
@@ -100,6 +111,38 @@
       cancelAnimationFrame(start);
       clearTimeout(settle);
       clearInterval(loop);
+    };
+  });
+
+  $effect(() => {
+    const source = file;
+
+    if (!source) {
+      decoded = null;
+      return;
+    }
+
+    let stale = false;
+
+    void (async () => {
+      const context = new AudioContext();
+      try {
+        const buffer = await context.decodeAudioData(await source.arrayBuffer());
+        if (stale) return;
+        decoded = buffer;
+
+        const { analyze } = await import("web-audio-beat-detector");
+        const tempo = await analyze(buffer).catch(() => null);
+        if (!stale && tempo) bpm = Math.round(tempo * 10) / 10;
+      } catch {
+        if (!stale) decoded = null;
+      } finally {
+        void context.close();
+      }
+    })();
+
+    return () => {
+      stale = true;
     };
   });
 
@@ -177,18 +220,40 @@
     <Dropzone onfile={(dropped) => (file = dropped)} />
   {/if}
 
-  {#snippet info(text: string)}
+  {#snippet info(text: string, align: "start" | "end" | "split")}
     <span class="group relative inline-flex items-center">
       <button type="button" aria-label={text} class="cursor-help">
         <Info size={12} class="text-neutral-600 transition-colors group-hover:text-neutral-300" />
       </button>
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-48 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed font-normal text-neutral-300 opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+        class="pointer-events-none absolute bottom-full z-10 mb-2 w-36 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed font-normal text-neutral-300 opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:w-48 {align ===
+        'start'
+          ? 'left-0'
+          : align === 'end'
+            ? 'right-0'
+            : 'left-0 xs:right-0 xs:left-auto'}"
       >
         {text}
       </span>
     </span>
+  {/snippet}
+
+  {#snippet choices(options: readonly string[], current: string, pick: (value: string) => void)}
+    <div class="flex gap-0.5 rounded-lg border border-neutral-700 p-0.5">
+      {#each options as option (option)}
+        <button
+          type="button"
+          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm transition-colors {current ===
+          option
+            ? 'bg-neutral-100 text-neutral-900'
+            : 'text-neutral-400 hover:text-neutral-100'}"
+          onclick={() => pick(option)}
+        >
+          {option}
+        </button>
+      {/each}
+    </div>
   {/snippet}
 
   {#snippet modeSwitch()}
@@ -207,13 +272,14 @@
     </span>
   {/snippet}
 
-  <div class="grid w-full max-w-xl grid-cols-2 gap-4">
+  <div class="grid w-full max-w-xl grid-cols-1 gap-4 xs:grid-cols-2">
     <div class="flex flex-col gap-2">
       <span class="flex items-center justify-between text-sm text-neutral-400">
         <span class="flex items-center gap-1.5">
           Window
           {@render info(
-            "Length of each chunk the audio is cut into. Every chunk is scored, then the chunks are reordered by that score."
+            "Length of each chunk the audio is cut into. Every chunk is scored, then the chunks are reordered by that score.",
+            "start"
           )}
         </span>
         {@render modeSwitch()}
@@ -222,11 +288,20 @@
       {#if mode === "Tempo"}
         <div class="grid grid-cols-2 gap-4">
           <label class="flex flex-col gap-1">
-            <input type="number" min="20" max="300" step="0.1" bind:value={bpm} class={entry} />
+            <input
+              type="number"
+              min="20"
+              max="300"
+              step="0.1"
+              value={bpm}
+              oninput={onBpm}
+              class={entry}
+            />
             <span class="flex items-center gap-1.5 text-xs text-neutral-500">
               BPM
               {@render info(
-                "Tempo used to size the chunks. Detected from the file on load; type over it to correct a bad guess."
+                "Tempo used to size the chunks. Detected from the file on load; type over it to correct a bad guess.",
+                "start"
               )}
             </span>
           </label>
@@ -246,7 +321,8 @@
             <span class="flex items-center gap-1.5 text-xs text-neutral-500">
               Division
               {@render info(
-                "How much musical time each chunk covers, assuming 4/4. With the tempo, this sets the chunk length."
+                "How much musical time each chunk covers, assuming 4/4. With the tempo, this sets the chunk length.",
+                "end"
               )}
             </span>
           </label>
@@ -256,78 +332,46 @@
           type="number"
           min="256"
           step="1"
-          list="windows"
-          bind:value={windowSize}
+          value={windowSize}
+          oninput={onWindow}
           aria-label="Window"
           class={entry}
         />
-        <datalist id="windows">
-          {#each windows as size (size)}
-            <option value={size}></option>
-          {/each}
-        </datalist>
       {/if}
     </div>
 
-    <label class="flex flex-col gap-2">
+    <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Target
         {@render info(
-          "What each chunk is scored on: Amplitude for how loud it is, Frequency for how bright it is."
+          "What each chunk is scored on: Amplitude for how loud it is, Frequency for how bright it is.",
+          "split"
         )}
       </span>
-      <div class="relative">
-        <select bind:value={target} class={field}>
-          {#each targets as option (option)}
-            <option value={option}>{option}</option>
-          {/each}
-        </select>
-        <ChevronDown
-          size={16}
-          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
-        />
-      </div>
-    </label>
+      {@render choices(targets, target, (value) => (target = value as typeof target))}
+    </div>
 
-    <label class="flex flex-col gap-2">
+    <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Measure
         {@render info(
-          "How a chunk becomes one number. Mean averages it, Peak takes the extreme, RMS weights louder parts more."
+          "How a chunk becomes one number. Mean averages it, Peak takes the extreme, RMS weights louder parts more.",
+          "start"
         )}
       </span>
-      <div class="relative">
-        <select bind:value={measure} class={field}>
-          {#each measures as option (option)}
-            <option value={option}>{option}</option>
-          {/each}
-        </select>
-        <ChevronDown
-          size={16}
-          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
-        />
-      </div>
-    </label>
+      {@render choices(measures, measure, (value) => (measure = value as typeof measure))}
+    </div>
 
-    <label class="flex flex-col gap-2">
+    <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Direction
         {@render info(
-          "Which end the sort starts from. Ascending puts the quietest or darkest chunks first."
+          "Which end the sort starts from. Ascending puts the quietest or darkest chunks first.",
+          "split"
         )}
       </span>
-      <div class="relative">
-        <select bind:value={direction} class={field}>
-          {#each directions as option (option)}
-            <option value={option}>{option}</option>
-          {/each}
-        </select>
-        <ChevronDown
-          size={16}
-          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
-        />
-      </div>
-    </label>
+      {@render choices(directions, direction, (value) => (direction = value as typeof direction))}
+    </div>
   </div>
 
   {#if sorted}
