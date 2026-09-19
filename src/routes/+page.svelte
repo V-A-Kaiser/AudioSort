@@ -12,6 +12,8 @@
   const directions = ["Ascending", "Descending"] as const;
   const modes = ["Tempo", "Samples"] as const;
   const divisions = [
+    { label: "1/64 bar", beats: 0.0625 },
+    { label: "1/32 bar", beats: 0.125 },
     { label: "1/16 bar", beats: 0.25 },
     { label: "1/8 bar", beats: 0.5 },
     { label: "1/4 bar", beats: 1 },
@@ -50,7 +52,7 @@
   let mode = $state<(typeof modes)[number]>("Tempo");
   let windowSize = $state(65536);
   let bpm = $state(120);
-  let division = $state<(typeof divisions)[number]>(divisions[2]);
+  let division = $state<(typeof divisions)[number]>(divisions[3]);
   let target = $state<(typeof targets)[number]>("Amplitude");
   let measure = $state<(typeof measures)[number]>("Mean");
   let direction = $state<(typeof directions)[number]>("Ascending");
