@@ -73,7 +73,7 @@
       use:droppable={(dropped) => {
         if (dropped) file = dropped;
       }}
-      class="flex w-full max-w-xl flex-col gap-3 rounded-xl outline-2 outline-offset-6 outline-transparent transition-colors data-dragging:outline-neutral-400"
+      class="flex w-full max-w-xl flex-col gap-3 rounded-xl outline-2 outline-offset-8 outline-transparent transition-colors outline-dashed data-dragging:bg-neutral-800 data-dragging:outline-neutral-400"
     >
       <div class="flex items-center gap-3">
         <p class="truncate text-lg text-neutral-200">{file.name}</p>
