@@ -144,7 +144,7 @@
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
-        class="flex size-10 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-40"
+        class="flex size-8 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-40"
         disabled={!duration}
         onclick={() => {
           if (!playing) {
@@ -163,7 +163,7 @@
         {/if}
       </button>
 
-      <p class="ml-auto font-mono text-sm text-neutral-400">
+      <p class="ml-auto rounded-full bg-neutral-50 px-4 py-2 font-mono text-sm text-neutral-400">
         {duration ? `${clock(position)} / ${clock(duration)}` : "Decoding…"}
       </p>
     </div>
