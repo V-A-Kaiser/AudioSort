@@ -80,7 +80,7 @@
 
     const instance = WaveSurfer.create({
       container: host,
-      height: 128,
+      height: "auto",
       splitChannels: [],
       backend: "WebAudio",
       waveColor: "#525252",
@@ -134,7 +134,7 @@
 
 <div class="flex w-full max-w-xl flex-col gap-4" class:hidden={!file}>
   <div class="relative" bind:clientWidth={width}>
-    <div bind:this={container}></div>
+    <div class="h-32" bind:this={container}></div>
   </div>
 
   {#if error}
