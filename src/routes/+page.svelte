@@ -28,14 +28,16 @@
     "w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
 
   const name = "AudioSort";
-  const shuffle = (source: string) =>
-    [...source]
-      .map((character) => ({ character, key: Math.random() }))
+  const order = Array.from({ length: name.length }, (_, index) => index);
+  const shuffle = () =>
+    order
+      .map((index) => ({ index, key: Math.random() }))
       .sort((a, b) => a.key - b.key)
-      .map(({ character }) => character)
-      .join("");
+      .map(({ index }) => index);
 
-  let title = $state(name);
+  let letters: HTMLElement[] = [];
+  let offsets = $state(order.map(() => 0));
+  let gliding = $state(false);
   let file = $state<File | null>(null);
   let mode = $state<(typeof modes)[number]>("Tempo");
   let windowSize = $state(65536);
@@ -56,47 +58,48 @@
   $effect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    let locked = 0;
-    title = shuffle(name);
+    const slide = (sequence: number[]) => {
+      if (!letters[0]) return;
 
-    const tick = setInterval(() => {
-      locked += 1;
-      title = name.slice(0, locked) + shuffle(name.slice(locked));
-      if (locked >= name.length) clearInterval(tick);
-    }, 70);
+      const lefts = letters.map((letter) => letter.offsetLeft);
+      const widths = letters.map((letter, index) =>
+        index < letters.length - 1 ? lefts[index + 1] - lefts[index] : letter.offsetWidth
+      );
 
-    return () => clearInterval(tick);
-  });
-
-  $effect(() => {
-    const source = file;
-
-    if (!source) {
-      decoded = null;
-      return;
-    }
-
-    let stale = false;
-
-    void (async () => {
-      const context = new AudioContext();
-      try {
-        const buffer = await context.decodeAudioData(await source.arrayBuffer());
-        if (stale) return;
-        decoded = buffer;
-
-        const { analyze } = await import("web-audio-beat-detector");
-        const tempo = await analyze(buffer).catch(() => null);
-        if (!stale && tempo) bpm = Math.round(tempo * 10) / 10;
-      } catch {
-        if (!stale) decoded = null;
-      } finally {
-        void context.close();
+      let cursor = lefts[0];
+      const next = order.map(() => 0);
+      for (const letter of sequence) {
+        next[letter] = cursor - lefts[letter];
+        cursor += widths[letter];
       }
-    })();
+      offsets = next;
+    };
+
+    let settle: ReturnType<typeof setTimeout>;
+
+    const resolve = () => {
+      slide(shuffle());
+      settle = setTimeout(() => slide(order), 1400);
+    };
+
+    slide(shuffle());
+
+    const start = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        gliding = true;
+        resolve();
+      })
+    );
+
+    const loop = setInterval(() => {
+      slide(shuffle());
+      settle = setTimeout(resolve, 1400);
+    }, 10000);
 
     return () => {
-      stale = true;
+      cancelAnimationFrame(start);
+      clearTimeout(settle);
+      clearInterval(loop);
     };
   });
 
@@ -130,8 +133,22 @@
 </script>
 
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
-  <h1 aria-label={name} class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">
-    {title}
+  <h1
+    aria-label={name}
+    class="inline-flex text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl"
+  >
+    {#each [...name] as character, index (index)}
+      <span
+        bind:this={letters[index]}
+        aria-hidden="true"
+        class="inline-block will-change-transform {gliding
+          ? 'transition-transform duration-700 ease-in-out'
+          : ''}"
+        style="transform: translateX({offsets[index]}px)"
+      >
+        {character}
+      </span>
+    {/each}
   </h1>
   <h2 class="font-thin text-neutral-300">It won't sound better, but at least it'll be tidy.</h2>
 
