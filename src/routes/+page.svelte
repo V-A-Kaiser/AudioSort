@@ -19,9 +19,8 @@
   let target = $state<(typeof targets)[number]>("Amplitude");
   let measure = $state<(typeof measures)[number]>("Mean");
   let direction = $state<(typeof directions)[number]>("Ascending");
-  let sorted = $state<Blob | null>(null);
-  let order = $state<number[] | null>(null);
-  let sorting = $state(false);
+  let decoded = $state<AudioBuffer | null>(null);
+  let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
 
   $effect(() => {
     const source = file;
@@ -31,31 +30,30 @@
     const way = direction;
 
     if (!source) {
+      decoded = null;
       sorted = null;
-      order = null;
       return;
     }
 
     let stale = false;
-    sorting = true;
 
     void (async () => {
       const context = new AudioContext();
       try {
-        const decoded = await context.decodeAudioData(await source.arrayBuffer());
-        const result = sortChunks(decoded, size, kind, statistic, way);
+        const buffer = await context.decodeAudioData(await source.arrayBuffer());
+        const result = sortChunks(buffer, size, kind, statistic, way);
+        const blob = toWav(result.buffer);
         if (!stale) {
-          sorted = toWav(result.buffer);
-          order = result.order;
+          decoded = buffer;
+          sorted = { blob, buffer: result.buffer, order: result.order };
         }
       } catch {
         if (!stale) {
+          decoded = null;
           sorted = null;
-          order = null;
         }
       } finally {
         void context.close();
-        if (!stale) sorting = false;
       }
     })();
 
@@ -87,7 +85,7 @@
         </button>
       </div>
 
-      <Waveform {file} />
+      <Waveform {file} buffer={decoded} />
     </div>
   {:else}
     <Dropzone onfile={(dropped) => (file = dropped)} />
@@ -156,8 +154,6 @@
   </div>
 
   {#if sorted}
-    <Waveform file={sorted} {order} />
-  {:else if sorting}
-    <p class="text-sm text-neutral-500">[TODO]</p>
+    <Waveform file={sorted.blob} buffer={sorted.buffer} order={sorted.order} />
   {/if}
 </main>
