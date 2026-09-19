@@ -56,6 +56,7 @@
     const instance = WaveSurfer.create({
       container,
       height: 128,
+      splitChannels: [],
       waveColor: "#525252",
       progressColor: "#e5e5e5",
       cursorColor: "#fafafa",
