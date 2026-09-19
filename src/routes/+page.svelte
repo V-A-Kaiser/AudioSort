@@ -65,7 +65,7 @@
   });
 </script>
 
-<main class="flex min-h-screen flex-col items-center gap-10 px-6 py-4">
+<main class="flex min-h-screen flex-col items-center gap-4 p-4">
   <h1 class="text-6xl font-thin tracking-tight text-neutral-50 sm:text-7xl">AudioSort</h1>
 
   {#if file}
