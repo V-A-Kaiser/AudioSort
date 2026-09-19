@@ -15,7 +15,7 @@
     "w-full cursor-pointer appearance-none rounded-lg border border-neutral-700 bg-neutral-900 py-2 pr-9 pl-3 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
 
   let file = $state<File | null>(null);
-  let windowSize = $state(1024);
+  let windowSize = $state(65536);
   let target = $state<(typeof targets)[number]>("Amplitude");
   let measure = $state<(typeof measures)[number]>("Mean");
   let direction = $state<(typeof directions)[number]>("Ascending");
