@@ -244,8 +244,7 @@
       {#each options as option (option)}
         <button
           type="button"
-          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm transition-colors {current ===
-          option
+          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm {current === option
             ? 'bg-neutral-100 text-neutral-900'
             : 'text-neutral-400 hover:text-neutral-100'}"
           onclick={() => pick(option)}
@@ -261,7 +260,7 @@
       {#each modes as option (option)}
         <button
           type="button"
-          class="cursor-pointer rounded-sm px-2 text-xs leading-4 transition-colors {mode === option
+          class="cursor-pointer rounded-sm px-2 text-xs leading-4 {mode === option
             ? 'bg-neutral-100 text-neutral-900'
             : 'text-neutral-400 hover:text-neutral-100'}"
           onclick={() => (mode = option)}
