@@ -33,7 +33,12 @@ const fft = (re: Float32Array, im: Float32Array) => {
   }
 };
 
-export const sortChunks = (buffer: AudioBuffer, windowSize: number, target: Target) => {
+export const sortChunks = (
+  buffer: AudioBuffer,
+  windowSize: number,
+  target: Target,
+  fade = Math.min(512, windowSize >> 3)
+) => {
   const { numberOfChannels, sampleRate, length } = buffer;
   const channels = Array.from({ length: numberOfChannels }, (_, index) =>
     buffer.getChannelData(index)
@@ -73,19 +78,35 @@ export const sortChunks = (buffer: AudioBuffer, windowSize: number, target: Targ
     (a, b) => scores[a] - scores[b]
   );
 
-  const sorted = new AudioBuffer({
-    numberOfChannels,
-    sampleRate,
-    length: count * windowSize
-  });
+  const stitched = Array.from(
+    { length: numberOfChannels },
+    () => new Float32Array(count * windowSize + fade)
+  );
 
   order.forEach((chunk, position) => {
     const source = chunk * windowSize;
-    const span = Math.min(windowSize, length - source);
-    channels.forEach((channel, index) =>
-      sorted.copyToChannel(channel.subarray(source, source + span), index, position * windowSize)
-    );
+    const span = Math.min(windowSize + fade, length - source);
+    const start = position * windowSize;
+
+    for (let i = 0; i < span; i++) {
+      const gain =
+        i < fade
+          ? Math.sin((Math.PI / 2) * (i / fade))
+          : i >= windowSize
+            ? Math.cos((Math.PI / 2) * ((i - windowSize) / fade))
+            : 1;
+
+      for (let index = 0; index < numberOfChannels; index++)
+        stitched[index][start + i] += channels[index][source + i] * gain;
+    }
   });
+
+  const sorted = new AudioBuffer({
+    numberOfChannels,
+    sampleRate,
+    length: count * windowSize + fade
+  });
+  stitched.forEach((data, index) => sorted.copyToChannel(data, index));
 
   return { buffer: sorted, order };
 };
