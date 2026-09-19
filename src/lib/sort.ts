@@ -1,4 +1,6 @@
 type Target = "Amplitude" | "Frequency";
+type Measure = "Mean" | "Peak" | "RMS";
+type Direction = "Ascending" | "Descending";
 
 const fft = (re: Float32Array, im: Float32Array) => {
   const n = re.length;
@@ -37,6 +39,8 @@ export const sortChunks = (
   buffer: AudioBuffer,
   windowSize: number,
   target: Target,
+  measure: Measure = "Mean",
+  direction: Direction = "Ascending",
   fade = Math.min(512, windowSize >> 3)
 ) => {
   const { numberOfChannels, sampleRate, length } = buffer;
@@ -54,9 +58,15 @@ export const sortChunks = (
     }
 
     if (target === "Amplitude") {
+      if (measure === "Peak") {
+        let peak = 0;
+        for (const sample of mono) peak = Math.max(peak, Math.abs(sample));
+        return peak;
+      }
+
       let sum = 0;
-      for (const sample of mono) sum += Math.abs(sample);
-      return sum / windowSize;
+      for (const sample of mono) sum += measure === "RMS" ? sample * sample : Math.abs(sample);
+      return measure === "RMS" ? Math.sqrt(sum / windowSize) : sum / windowSize;
     }
 
     const im = new Float32Array(windowSize);
@@ -66,16 +76,28 @@ export const sortChunks = (
 
     let weighted = 0;
     let total = 0;
+    let loudest = 0;
+    let peakFrequency = 0;
     for (let k = 0; k <= windowSize >> 1; k++) {
       const magnitude = Math.hypot(mono[k], im[k]);
-      weighted += ((k * sampleRate) / windowSize) * magnitude;
+      const frequency = (k * sampleRate) / windowSize;
+
+      if (magnitude > loudest) {
+        loudest = magnitude;
+        peakFrequency = frequency;
+      }
+
+      weighted += (measure === "RMS" ? frequency * frequency : frequency) * magnitude;
       total += magnitude;
     }
-    return total ? weighted / total : 0;
+
+    if (measure === "Peak") return peakFrequency;
+    if (!total) return 0;
+    return measure === "RMS" ? Math.sqrt(weighted / total) : weighted / total;
   });
 
-  const order = Array.from({ length: count }, (_, index) => index).sort(
-    (a, b) => scores[a] - scores[b]
+  const order = Array.from({ length: count }, (_, index) => index).sort((a, b) =>
+    direction === "Descending" ? scores[b] - scores[a] : scores[a] - scores[b]
   );
 
   const stitched = Array.from(
