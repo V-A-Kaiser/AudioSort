@@ -3,7 +3,11 @@
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
 
-  let { file, order = null }: { file: File | Blob | null; order?: number[] | null } = $props();
+  let {
+    file,
+    buffer = null,
+    order = null
+  }: { file: File | Blob | null; buffer?: AudioBuffer | null; order?: number[] | null } = $props();
 
   let container = $state<HTMLDivElement | null>(null);
   let width = $state(0);
@@ -68,12 +72,13 @@
   });
 
   $effect(() => {
-    if (!container || !file) {
+    if (!container || !file || !buffer) {
       surfer = null;
       return;
     }
 
     const host = container;
+    const decoded = buffer;
 
     playing = false;
     position = 0;
@@ -109,7 +114,11 @@
     instance.on("error", () => (error = "Could not decode this audio."));
     instance.on("interaction", () => void instance.play());
 
-    void instance.loadBlob(file);
+    void instance.loadBlob(
+      file,
+      Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index)),
+      decoded.duration
+    );
     surfer = instance;
 
     return () => {
