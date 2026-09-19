@@ -8,6 +8,8 @@
 
   const windows = Array.from({ length: 7 }, (_, index) => 2 ** (index + 10));
   const targets = ["Amplitude", "Frequency"] as const;
+  const measures = ["Mean", "Peak", "RMS"] as const;
+  const directions = ["Ascending", "Descending"] as const;
 
   const field =
     "w-full cursor-pointer appearance-none rounded-lg border border-neutral-700 bg-neutral-900 py-2 pr-9 pl-3 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
@@ -15,6 +17,8 @@
   let file = $state<File | null>(null);
   let windowSize = $state(1024);
   let target = $state<(typeof targets)[number]>("Amplitude");
+  let measure = $state<(typeof measures)[number]>("Mean");
+  let direction = $state<(typeof directions)[number]>("Ascending");
   let sorted = $state<Blob | null>(null);
   let order = $state<number[] | null>(null);
   let sorting = $state(false);
@@ -22,7 +26,9 @@
   $effect(() => {
     const source = file;
     const size = windowSize;
-    const measure = target;
+    const kind = target;
+    const statistic = measure;
+    const way = direction;
 
     if (!source) {
       sorted = null;
@@ -37,7 +43,7 @@
       const context = new AudioContext();
       try {
         const decoded = await context.decodeAudioData(await source.arrayBuffer());
-        const result = sortChunks(decoded, size, measure);
+        const result = sortChunks(decoded, size, kind, statistic, way);
         if (!stale) {
           sorted = toWav(result.buffer);
           order = result.order;
@@ -87,8 +93,8 @@
     <Dropzone onfile={(dropped) => (file = dropped)} />
   {/if}
 
-  <div class="flex w-full max-w-xl gap-4">
-    <label class="flex flex-1 flex-col gap-2">
+  <div class="grid w-full max-w-xl grid-cols-2 gap-4">
+    <label class="flex flex-col gap-2">
       <span class="text-sm text-neutral-400">Window</span>
       <div class="relative">
         <select bind:value={windowSize} class={field}>
@@ -103,11 +109,41 @@
       </div>
     </label>
 
-    <label class="flex flex-1 flex-col gap-2">
+    <label class="flex flex-col gap-2">
       <span class="text-sm text-neutral-400">Target</span>
       <div class="relative">
         <select bind:value={target} class={field}>
           {#each targets as option (option)}
+            <option value={option}>{option}</option>
+          {/each}
+        </select>
+        <ChevronDown
+          size={16}
+          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
+        />
+      </div>
+    </label>
+
+    <label class="flex flex-col gap-2">
+      <span class="text-sm text-neutral-400">Measure</span>
+      <div class="relative">
+        <select bind:value={measure} class={field}>
+          {#each measures as option (option)}
+            <option value={option}>{option}</option>
+          {/each}
+        </select>
+        <ChevronDown
+          size={16}
+          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
+        />
+      </div>
+    </label>
+
+    <label class="flex flex-col gap-2">
+      <span class="text-sm text-neutral-400">Direction</span>
+      <div class="relative">
+        <select bind:value={direction} class={field}>
+          {#each directions as option (option)}
             <option value={option}>{option}</option>
           {/each}
         </select>
