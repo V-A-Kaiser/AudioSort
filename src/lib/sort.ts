@@ -55,6 +55,8 @@ export const sortChunks = (buffer: AudioBuffer, windowSize: number, target: Targ
     }
 
     const im = new Float32Array(windowSize);
+    for (let i = 0; i < windowSize; i++)
+      mono[i] *= 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / windowSize);
     fft(mono, im);
 
     let weighted = 0;
