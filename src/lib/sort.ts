@@ -48,10 +48,11 @@ export const sortChunks = (
     buffer.getChannelData(index)
   );
   const count = Math.ceil(length / windowSize);
+  const fftSize = 2 ** Math.ceil(Math.log2(windowSize));
 
   const scores = Array.from({ length: count }, (_, chunk) => {
     const offset = chunk * windowSize;
-    const mono = new Float32Array(windowSize);
+    const mono = new Float32Array(fftSize);
     for (let i = 0; i < windowSize; i++) {
       if (offset + i >= length) break;
       for (const channel of channels) mono[i] += channel[offset + i] / numberOfChannels;
@@ -69,7 +70,7 @@ export const sortChunks = (
       return measure === "RMS" ? Math.sqrt(sum / windowSize) : sum / windowSize;
     }
 
-    const im = new Float32Array(windowSize);
+    const im = new Float32Array(fftSize);
     for (let i = 0; i < windowSize; i++)
       mono[i] *= 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / windowSize);
     fft(mono, im);
@@ -78,9 +79,9 @@ export const sortChunks = (
     let total = 0;
     let loudest = 0;
     let peakFrequency = 0;
-    for (let k = 0; k <= windowSize >> 1; k++) {
+    for (let k = 0; k <= fftSize >> 1; k++) {
       const magnitude = Math.hypot(mono[k], im[k]);
-      const frequency = (k * sampleRate) / windowSize;
+      const frequency = (k * sampleRate) / fftSize;
 
       if (magnitude > loudest) {
         loudest = magnitude;
