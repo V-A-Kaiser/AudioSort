@@ -13,6 +13,29 @@
   let duration = $state(0);
   let error = $state<string | null>(null);
 
+  const ramp = (from: number, to: number) => {
+    const node = (
+      surfer?.getMediaElement() as unknown as { getGainNode?: () => GainNode } | undefined
+    )?.getGainNode?.();
+    if (!node) return;
+
+    const context = node.context as AudioContext;
+    void context.resume();
+
+    const begin = context.currentTime;
+    node.gain.cancelScheduledValues(begin);
+    node.gain.setValueAtTime(from, begin);
+    node.gain.linearRampToValueAtTime(to, begin + 0.012);
+
+    if (!to) return;
+
+    const remaining = (surfer?.getDuration() ?? 0) - (surfer?.getCurrentTime() ?? 0);
+    if (remaining <= 0.024) return;
+
+    node.gain.setValueAtTime(to, begin + remaining - 0.012);
+    node.gain.linearRampToValueAtTime(0, begin + remaining);
+  };
+
   const tint = (lightness: number) => {
     const context = document.createElement("canvas").getContext("2d");
     if (!context || !width) return "#525252";
@@ -48,13 +71,15 @@
       return;
     }
 
+    const host = container;
+
     playing = false;
     position = 0;
     duration = 0;
     error = null;
 
     const instance = WaveSurfer.create({
-      container,
+      container: host,
       height: 128,
       splitChannels: [],
       backend: "WebAudio",
@@ -69,22 +94,14 @@
 
     instance.on("ready", (seconds) => (duration = seconds));
     instance.on("timeupdate", (seconds) => (position = seconds));
+    const duck = () => ramp(1, 0);
+    host.addEventListener("pointerdown", duck);
+
     instance.on("play", () => {
       playing = true;
-
-      const node = (
-        instance.getMediaElement() as unknown as { getGainNode?: () => GainNode }
-      ).getGainNode?.();
-      if (!node) return;
-
-      const context = node.context as AudioContext;
-      void context.resume();
-
-      const begin = context.currentTime;
-      node.gain.cancelScheduledValues(begin);
-      node.gain.setValueAtTime(0, begin);
-      node.gain.linearRampToValueAtTime(1, begin + 0.012);
+      ramp(0, 1);
     });
+    instance.on("seeking", () => ramp(0, 1));
     instance.on("pause", () => (playing = false));
     instance.on("finish", () => (playing = false));
     instance.on("error", () => (error = "Could not decode this audio."));
@@ -94,8 +111,23 @@
     surfer = instance;
 
     return () => {
-      (instance.getMediaElement() as unknown as { destroy?: () => void }).destroy?.();
+      host.removeEventListener("pointerdown", duck);
+
+      const player = instance.getMediaElement() as unknown as {
+        getGainNode?: () => GainNode;
+        destroy?: () => void;
+      };
+      const node = player.getGainNode?.();
+
+      if (node) {
+        const begin = node.context.currentTime;
+        node.gain.cancelScheduledValues(begin);
+        node.gain.setValueAtTime(node.gain.value, begin);
+        node.gain.linearRampToValueAtTime(0, begin + 0.012);
+      }
+
       instance.destroy();
+      setTimeout(() => player.destroy?.(), 14);
     };
   });
 </script>
@@ -114,7 +146,15 @@
         aria-label={playing ? "Pause" : "Play"}
         class="flex size-10 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-40"
         disabled={!duration}
-        onclick={() => void surfer?.playPause()}
+        onclick={() => {
+          if (!playing) {
+            void surfer?.play();
+            return;
+          }
+
+          ramp(1, 0);
+          setTimeout(() => surfer?.pause(), 14);
+        }}
       >
         {#if playing}
           <Pause size={16} fill="currentColor" />
