@@ -3,6 +3,7 @@
   import Waveform from "$lib/components/Waveform.svelte";
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Info from "@lucide/svelte/icons/info";
   import { sortChunks, toWav } from "$lib/sort";
   import { droppable } from "$lib/droppable";
 
@@ -133,6 +134,20 @@
     <Dropzone onfile={(dropped) => (file = dropped)} />
   {/if}
 
+  {#snippet info(text: string)}
+    <span class="group relative inline-flex items-center">
+      <button type="button" aria-label={text} class="cursor-help">
+        <Info size={12} class="text-neutral-600 transition-colors group-hover:text-neutral-300" />
+      </button>
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-48 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed font-normal text-neutral-300 opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  {/snippet}
+
   {#snippet modeSwitch()}
     <span class="flex rounded border border-neutral-700">
       {#each modes as option (option)}
@@ -152,7 +167,12 @@
   <div class="grid w-full max-w-xl grid-cols-2 gap-4">
     <div class="flex flex-col gap-2">
       <span class="flex items-center justify-between text-sm text-neutral-400">
-        <span>Window</span>
+        <span class="flex items-center gap-1.5">
+          Window
+          {@render info(
+            "Length of each chunk the audio is cut into. Every chunk is scored, then the chunks are reordered by that score."
+          )}
+        </span>
         {@render modeSwitch()}
       </span>
 
@@ -160,7 +180,12 @@
         <div class="grid grid-cols-2 gap-4">
           <label class="flex flex-col gap-1">
             <input type="number" min="20" max="300" step="0.1" bind:value={bpm} class={entry} />
-            <span class="text-xs text-neutral-500">BPM</span>
+            <span class="flex items-center gap-1.5 text-xs text-neutral-500">
+              BPM
+              {@render info(
+                "Tempo used to size the chunks. Detected from the file on load; type over it to correct a bad guess."
+              )}
+            </span>
           </label>
 
           <label class="flex flex-col gap-1">
@@ -175,7 +200,12 @@
                 class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-neutral-500"
               />
             </div>
-            <span class="text-xs text-neutral-500">Division</span>
+            <span class="flex items-center gap-1.5 text-xs text-neutral-500">
+              Division
+              {@render info(
+                "How much musical time each chunk covers, assuming 4/4. With the tempo, this sets the chunk length."
+              )}
+            </span>
           </label>
         </div>
       {:else}
@@ -197,7 +227,12 @@
     </div>
 
     <label class="flex flex-col gap-2">
-      <span class="text-sm text-neutral-400">Target</span>
+      <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+        Target
+        {@render info(
+          "What each chunk is scored on: Amplitude for how loud it is, Frequency for how bright it is."
+        )}
+      </span>
       <div class="relative">
         <select bind:value={target} class={field}>
           {#each targets as option (option)}
@@ -212,7 +247,12 @@
     </label>
 
     <label class="flex flex-col gap-2">
-      <span class="text-sm text-neutral-400">Measure</span>
+      <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+        Measure
+        {@render info(
+          "How a chunk becomes one number. Mean averages it, Peak takes the extreme, RMS weights louder parts more."
+        )}
+      </span>
       <div class="relative">
         <select bind:value={measure} class={field}>
           {#each measures as option (option)}
@@ -227,7 +267,12 @@
     </label>
 
     <label class="flex flex-col gap-2">
-      <span class="text-sm text-neutral-400">Direction</span>
+      <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+        Direction
+        {@render info(
+          "Which end the sort starts from. Ascending puts the quietest or darkest chunks first."
+        )}
+      </span>
       <div class="relative">
         <select bind:value={direction} class={field}>
           {#each directions as option (option)}
