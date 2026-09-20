@@ -4,7 +4,7 @@
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Info from "@lucide/svelte/icons/info";
-  import { sortChunks, toWav } from "$lib/sort";
+  import { chunkOrder, stitchChunks, toWav } from "$lib/sort";
   import { droppable } from "$lib/droppable";
 
   const targets = ["Amplitude", "Frequency"] as const;
@@ -58,6 +58,8 @@
   let direction = $state<(typeof directions)[number]>("Ascending");
   let decoded = $state<AudioBuffer | null>(null);
   let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
+
+  const cache: { key: string; order: number[] }[] = [];
 
   const onWindow = settle((value) => (windowSize = value));
   const onBpm = settle((value) => (bpm = value));
@@ -118,6 +120,7 @@
 
   $effect(() => {
     const source = file;
+    cache.length = 0;
 
     if (!source) {
       decoded = null;
@@ -166,9 +169,18 @@
       await new Promise((resolve) => setTimeout(resolve));
       if (stale) return;
 
-      const result = sortChunks(buffer, size, kind, statistic, way);
-      const blob = toWav(result.buffer);
-      if (!stale) sorted = { blob, buffer: result.buffer, order: result.order };
+      const key = `${size}|${kind}|${statistic}|${way}`;
+      const index = cache.findIndex((entry) => entry.key === key);
+      const order =
+        index >= 0 ? cache[index].order : chunkOrder(buffer, size, kind, statistic, way);
+      if (stale) return;
+
+      if (index >= 0) cache.splice(index, 1);
+      cache.push({ key, order });
+      if (cache.length > 32) cache.shift();
+
+      const stitched = stitchChunks(buffer, size, order);
+      sorted = { blob: toWav(stitched), buffer: stitched, order };
     })();
 
     return () => {
