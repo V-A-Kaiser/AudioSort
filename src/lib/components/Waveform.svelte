@@ -128,6 +128,15 @@
 
     const data = buffer.getChannelData(0);
     const middle = height / 2;
+    const reach = middle - 16;
+
+    context.fillStyle = "#525252";
+    for (
+      let chunk = Math.floor(offset / chunkWidth);
+      chunk <= Math.floor((offset + stripWidth) / chunkWidth);
+      chunk++
+    )
+      context.fillRect(chunk * chunkWidth - offset, 0, 1, height);
 
     for (let x = 0; x < stripWidth; x++) {
       const start = offset + x;
@@ -147,19 +156,11 @@
       context.fillStyle = hue(order[chunk] / order.length, 55);
       context.fillRect(
         x,
-        middle - high * middle,
+        middle - high * reach,
         1,
-        Math.max(1, (high - low) * middle)
+        Math.max(1, (high - low) * reach)
       );
     }
-
-    context.fillStyle = "#262626";
-    for (
-      let chunk = Math.floor(offset / chunkWidth);
-      chunk <= Math.floor((offset + stripWidth) / chunkWidth);
-      chunk++
-    )
-      context.fillRect(chunk * chunkWidth - offset, 0, 1, height);
   });
 
   $effect(() => {
@@ -290,7 +291,7 @@
       bind:this={strip}
       bind:clientWidth={stripWidth}
       onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
-      class="relative h-20 overflow-x-auto overflow-y-hidden rounded-lg bg-neutral-950"
+      class="relative h-32 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
     >
       <button
         type="button"
