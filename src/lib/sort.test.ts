@@ -26,18 +26,24 @@ describe("chunkOrder / amplitude", () => {
   });
 
   it("sorts loudest first when descending", () => {
-    expect(chunkOrder(audio, 64, "Amplitude", "Mean", "Descending")).toEqual([0, 2, 3, 1]);
+    expect(chunkOrder(audio, 64, "Amplitude", "Mean", "Descending")).toEqual([
+      0, 2, 3, 1
+    ]);
   });
 
   it("ranks a lone spike above a steady level under Peak but not Mean", () => {
-    const spiky = mono(2, 64, (chunk, index) => (chunk === 0 ? 0.5 : index === 7 ? 0.9 : 0));
+    const spiky = mono(2, 64, (chunk, index) =>
+      chunk === 0 ? 0.5 : index === 7 ? 0.9 : 0
+    );
 
     expect(chunkOrder(spiky, 64, "Amplitude", "Peak")).toEqual([0, 1]);
     expect(chunkOrder(spiky, 64, "Amplitude", "Mean")).toEqual([1, 0]);
   });
 
   it("ranks a burst above a higher-mean steady chunk under RMS", () => {
-    const bursty = mono(2, 64, (chunk, index) => (chunk === 0 ? 0.6 : index < 32 ? 1 : 0));
+    const bursty = mono(2, 64, (chunk, index) =>
+      chunk === 0 ? 0.6 : index < 32 ? 1 : 0
+    );
 
     expect(chunkOrder(bursty, 64, "Amplitude", "RMS")).toEqual([0, 1]);
     expect(chunkOrder(bursty, 64, "Amplitude", "Mean")).toEqual([1, 0]);
@@ -57,7 +63,11 @@ describe("chunkOrder / amplitude", () => {
     left.fill(0.3, 64);
     right.fill(0.3, 64);
 
-    const stereo: Audio = { channels: [left, right], sampleRate: 8000, length: 128 };
+    const stereo: Audio = {
+      channels: [left, right],
+      sampleRate: 8000,
+      length: 128
+    };
     expect(chunkOrder(stereo, 64, "Amplitude", "Peak")).toEqual([0, 1]);
   });
 
@@ -74,7 +84,9 @@ describe("chunkOrder / amplitude", () => {
 
 describe("chunkOrder / frequency", () => {
   const frequencies = [1000, 250, 500];
-  const audio = mono(3, 1024, (chunk, index) => sine(frequencies[chunk], index));
+  const audio = mono(3, 1024, (chunk, index) =>
+    sine(frequencies[chunk], index)
+  );
 
   it("sorts by peak bin frequency", () => {
     expect(chunkOrder(audio, 1024, "Frequency", "Peak")).toEqual([1, 2, 0]);
@@ -89,7 +101,9 @@ describe("chunkOrder / frequency", () => {
   });
 
   it("reverses when descending", () => {
-    expect(chunkOrder(audio, 1024, "Frequency", "Peak", "Descending")).toEqual([0, 2, 1]);
+    expect(chunkOrder(audio, 1024, "Frequency", "Peak", "Descending")).toEqual([
+      0, 2, 1
+    ]);
   });
 
   it("ignores level, ranking a quiet high chunk above a loud low one", () => {
@@ -118,7 +132,9 @@ describe("chunkOrder / frequency", () => {
   });
 
   it("scores silence as zero", () => {
-    const quiet = mono(2, 1024, (chunk, index) => (chunk === 0 ? sine(500, index) : 0));
+    const quiet = mono(2, 1024, (chunk, index) =>
+      chunk === 0 ? sine(500, index) : 0
+    );
 
     expect(chunkOrder(quiet, 1024, "Frequency", "Mean")).toEqual([1, 0]);
     expect(chunkOrder(quiet, 1024, "Frequency", "Peak")).toEqual([1, 0]);
@@ -134,8 +150,12 @@ describe("stitchChunks", () => {
     expect(stitched.length).toBe(128);
     expect(stitched.sampleRate).toBe(8000);
     expect(stitched.channels).toHaveLength(1);
-    expect(Array.from(stitched.channels[0].slice(0, 64))).toEqual(Array(64).fill(3));
-    expect(Array.from(stitched.channels[0].slice(64))).toEqual(Array(64).fill(1));
+    expect(Array.from(stitched.channels[0].slice(0, 64))).toEqual(
+      Array(64).fill(3)
+    );
+    expect(Array.from(stitched.channels[0].slice(64))).toEqual(
+      Array(64).fill(1)
+    );
   });
 
   it("defaults the fade to an eighth of the window and pads the tail by it", () => {
@@ -174,7 +194,9 @@ describe("stitchChunks", () => {
 
     expect(stitched.length).toBe(72);
     expect(stitched.channels[0][63]).toBeCloseTo(4, 5);
-    expect(Array.from(stitched.channels[0].slice(64))).toEqual(Array(8).fill(0));
+    expect(Array.from(stitched.channels[0].slice(64))).toEqual(
+      Array(8).fill(0)
+    );
   });
 
   it("stitches every channel with the same order", () => {
@@ -185,7 +207,11 @@ describe("stitchChunks", () => {
     right.fill(3, 0, 64);
     right.fill(4, 64);
 
-    const stereo: Audio = { channels: [left, right], sampleRate: 8000, length: 128 };
+    const stereo: Audio = {
+      channels: [left, right],
+      sampleRate: 8000,
+      length: 128
+    };
     const stitched = stitchChunks(stereo, 64, [1, 0], 0);
 
     expect(stitched.channels).toHaveLength(2);
@@ -205,7 +231,10 @@ describe("stitchChunks", () => {
 
 describe("toWav", () => {
   const audio: Audio = {
-    channels: [Float32Array.from([1, -1, 0.5, 2]), Float32Array.from([0, 0.25, -2, -0.5])],
+    channels: [
+      Float32Array.from([1, -1, 0.5, 2]),
+      Float32Array.from([0, 0.25, -2, -0.5])
+    ],
     sampleRate: 44100,
     length: 4
   };
@@ -235,13 +264,21 @@ describe("toWav", () => {
 
   it("interleaves channels and clamps beyond full scale", async () => {
     const view = new DataView(await toWav(audio).arrayBuffer());
-    const samples = Array.from({ length: 8 }, (_, index) => view.getInt16(44 + index * 2, true));
+    const samples = Array.from({ length: 8 }, (_, index) =>
+      view.getInt16(44 + index * 2, true)
+    );
 
-    expect(samples).toEqual([32767, 0, -32767, 8191, 16383, -32767, 32767, -16383]);
+    expect(samples).toEqual([
+      32767, 0, -32767, 8191, 16383, -32767, 32767, -16383
+    ]);
   });
 
   it("writes a header-only file for empty audio", async () => {
-    const blob = toWav({ channels: [new Float32Array(0)], sampleRate: 8000, length: 0 });
+    const blob = toWav({
+      channels: [new Float32Array(0)],
+      sampleRate: 8000,
+      length: 0
+    });
     expect(blob.size).toBe(44);
 
     const view = new DataView(await blob.arrayBuffer());

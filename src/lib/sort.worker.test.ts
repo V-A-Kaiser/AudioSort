@@ -4,7 +4,9 @@ import type { Audio } from "./sort";
 const source: Audio = (() => {
   const levels = [0.8, 0.2, 0.6, 0.4];
   const data = new Float32Array(4 * 64);
-  levels.forEach((level, chunk) => data.fill(level, chunk * 64, (chunk + 1) * 64));
+  levels.forEach((level, chunk) =>
+    data.fill(level, chunk * 64, (chunk + 1) * 64)
+  );
   return { channels: [data], sampleRate: 8000, length: data.length };
 })();
 
@@ -19,7 +21,10 @@ const sort = (id: number, order: number[] | null = null) => ({
 });
 
 const harness = async () => {
-  const posted: { message: Record<string, unknown>; transfer: Transferable[] }[] = [];
+  const posted: {
+    message: Record<string, unknown>;
+    transfer: Transferable[];
+  }[] = [];
 
   const scope = {
     onmessage: null as ((event: MessageEvent) => void) | null,
@@ -59,7 +64,9 @@ describe("sort.worker", () => {
     send(sort(1));
 
     const channels = posted[0].message.channels as Float32Array[];
-    expect(posted[0].transfer).toEqual(channels.map((channel) => channel.buffer));
+    expect(posted[0].transfer).toEqual(
+      channels.map((channel) => channel.buffer)
+    );
   });
 
   it("queues a sort that arrives before the source", async () => {

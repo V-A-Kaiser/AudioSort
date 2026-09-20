@@ -35,7 +35,11 @@ const fft = (re: Float32Array, im: Float32Array) => {
   }
 };
 
-export type Audio = { channels: Float32Array[]; sampleRate: number; length: number };
+export type Audio = {
+  channels: Float32Array[];
+  sampleRate: number;
+  length: number;
+};
 
 export const chunkOrder = (
   audio: Audio,
@@ -54,7 +58,8 @@ export const chunkOrder = (
     const mono = new Float32Array(fftSize);
     for (let i = 0; i < windowSize; i++) {
       if (offset + i >= length) break;
-      for (const channel of channels) mono[i] += channel[offset + i] / numberOfChannels;
+      for (const channel of channels)
+        mono[i] += channel[offset + i] / numberOfChannels;
     }
 
     if (target === "Amplitude") {
@@ -65,7 +70,8 @@ export const chunkOrder = (
       }
 
       let sum = 0;
-      for (const sample of mono) sum += measure === "RMS" ? sample * sample : Math.abs(sample);
+      for (const sample of mono)
+        sum += measure === "RMS" ? sample * sample : Math.abs(sample);
       return measure === "RMS" ? Math.sqrt(sum / windowSize) : sum / windowSize;
     }
 
@@ -87,7 +93,8 @@ export const chunkOrder = (
         peakFrequency = frequency;
       }
 
-      weighted += (measure === "RMS" ? frequency * frequency : frequency) * magnitude;
+      weighted +=
+        (measure === "RMS" ? frequency * frequency : frequency) * magnitude;
       total += magnitude;
     }
 
@@ -144,7 +151,9 @@ export const toWav = (audio: Audio) => {
   const view = new DataView(new ArrayBuffer(44 + bytes));
 
   const ascii = (offset: number, text: string) =>
-    [...text].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+    [...text].forEach((character, index) =>
+      view.setUint8(offset + index, character.charCodeAt(0))
+    );
 
   ascii(0, "RIFF");
   view.setUint32(4, 36 + bytes, true);
@@ -162,7 +171,11 @@ export const toWav = (audio: Audio) => {
   let offset = 44;
   for (let i = 0; i < length; i++) {
     for (const channel of channels) {
-      view.setInt16(offset, Math.max(-1, Math.min(1, channel[i])) * 0x7fff, true);
+      view.setInt16(
+        offset,
+        Math.max(-1, Math.min(1, channel[i])) * 0x7fff,
+        true
+      );
       offset += 2;
     }
   }

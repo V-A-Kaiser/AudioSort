@@ -67,7 +67,11 @@
   let measure = $state<(typeof measures)[number]>("Mean");
   let direction = $state<(typeof directions)[number]>("Ascending");
   let decoded = $state<AudioBuffer | null>(null);
-  let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
+  let sorted = $state<{
+    blob: Blob;
+    buffer: AudioBuffer;
+    order: number[];
+  } | null>(null);
 
   const cache: { key: string; order: number[] }[] = [];
 
@@ -79,14 +83,19 @@
 
   const samples = $derived(
     mode === "Tempo" && decoded && bpm > 0
-      ? Math.max(256, Math.round((decoded.sampleRate * 60 * division.beats) / bpm))
+      ? Math.max(
+          256,
+          Math.round((decoded.sampleRate * 60 * division.beats) / bpm)
+        )
       : Math.max(256, Math.round(windowSize) || 65536)
   );
 
   const filename = $derived(
     [
       file?.name.replace(/\.[^.]+$/, "") ?? "audio",
-      mode === "Tempo" ? `${Math.round(bpm)}bpm-${division.stub}` : `${samples}smp`,
+      mode === "Tempo"
+        ? `${Math.round(bpm)}bpm-${division.stub}`
+        : `${samples}smp`,
       stubs[target],
       stubs[measure],
       stubs[direction]
@@ -105,7 +114,9 @@
 
       const lefts = letters.map((letter) => letter.offsetLeft);
       const widths = letters.map((letter, index) =>
-        index < letters.length - 1 ? lefts[index + 1] - lefts[index] : letter.offsetWidth
+        index < letters.length - 1
+          ? lefts[index + 1] - lefts[index]
+          : letter.offsetWidth
       );
 
       let cursor = lefts[0];
@@ -159,7 +170,9 @@
     void (async () => {
       const context = new AudioContext();
       try {
-        const buffer = await context.decodeAudioData(await source.arrayBuffer());
+        const buffer = await context.decodeAudioData(
+          await source.arrayBuffer()
+        );
         if (stale) return;
         decoded = buffer;
 
@@ -237,8 +250,9 @@
         sampleRate: data.sampleRate,
         length: data.length
       });
-      data.channels.forEach((channel: Float32Array<ArrayBuffer>, position: number) =>
-        stitched.copyToChannel(channel, position)
+      data.channels.forEach(
+        (channel: Float32Array<ArrayBuffer>, position: number) =>
+          stitched.copyToChannel(channel, position)
       );
 
       sorted = { blob: data.blob, buffer: stitched, order: data.order };
@@ -250,7 +264,9 @@
       id,
       windowSize: size,
       order:
-        cache.find((entry) => entry.key === `${size}|${kind}|${statistic}|${way}`)?.order ?? null,
+        cache.find(
+          (entry) => entry.key === `${size}|${kind}|${statistic}|${way}`
+        )?.order ?? null,
       target: kind,
       measure: statistic,
       direction: way
@@ -282,8 +298,12 @@
     {/each}
   </h1>
   <div class="group relative cursor-help">
-    <h2 class="font-thin text-neutral-300">"It's <em class="font-normal">sort</em>a good!"</h2>
-    <h3 class="text-xs font-thin italic">— Johann Carl Friedrich Gauss, Progenitor of FFT, 1805</h3>
+    <h2 class="font-thin text-neutral-300">
+      "It's <em class="font-normal">sort</em>a good!"
+    </h2>
+    <h3 class="text-xs font-thin italic">
+      — Johann Carl Friedrich Gauss, Progenitor of FFT, 1805
+    </h3>
 
     <span
       class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-52 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed text-neutral-300 opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
@@ -313,10 +333,15 @@
     <span class="group relative inline-flex items-center">
       <button
         type="button"
-        aria-label="{text} {points.map(([term, detail]) => `${term}: ${detail}`).join(' ')}"
+        aria-label="{text} {points
+          .map(([term, detail]) => `${term}: ${detail}`)
+          .join(' ')}"
         class="cursor-help"
       >
-        <Info size={12} class="text-neutral-600 transition-colors group-hover:text-neutral-300" />
+        <Info
+          size={12}
+          class="text-neutral-600 transition-colors group-hover:text-neutral-300"
+        />
       </button>
       <span
         aria-hidden="true"
@@ -334,7 +359,9 @@
             {#each points as [term, detail] (term)}
               <li class="flex gap-1.5">
                 <span aria-hidden="true" class="text-neutral-600">&bull;</span>
-                <span><span class="text-neutral-100">{term}</span> &mdash; {detail}</span>
+                <span
+                  ><span class="text-neutral-100">{term}</span> &mdash; {detail}</span
+                >
               </li>
             {/each}
           </ul>
@@ -343,7 +370,11 @@
     </span>
   {/snippet}
 
-  {#snippet choices(options: readonly string[], current: string, pick: (value: string) => void)}
+  {#snippet choices(
+    options: readonly string[],
+    current: string,
+    pick: (value: string) => void
+  )}
     {@const index = options.indexOf(current)}
     {@const columns = `repeat(${options.length}, minmax(0, 1fr))`}
     <div
@@ -363,16 +394,20 @@
       <span
         aria-hidden="true"
         class="pointer-events-none absolute inset-0.5 overflow-hidden rounded-md bg-neutral-100 transition-transform duration-200 ease-out"
-        style="width: calc((100% - 4px) / {options.length}); transform: translateX({index * 100}%)"
+        style="width: calc((100% - 4px) / {options.length}); transform: translateX({index *
+          100}%)"
       >
         <span
           class="absolute top-0 left-0 grid transition-transform duration-200 ease-out"
           style="width: {options.length *
-            100}%; grid-template-columns: {columns}; transform: translateX(-{(index * 100) /
+            100}%; grid-template-columns: {columns}; transform: translateX(-{(index *
+            100) /
             options.length}%)"
         >
           {#each options as option (option)}
-            <span class="py-1.5 text-center text-sm text-neutral-900">{option}</span>
+            <span class="py-1.5 text-center text-sm text-neutral-900"
+              >{option}</span
+            >
           {/each}
         </span>
       </span>
@@ -402,7 +437,9 @@
           style="transform: translateX(-{(index * 100) / modes.length}%)"
         >
           {#each modes as option (option)}
-            <span class="px-2 text-center text-xs leading-4 text-neutral-900">{option}</span>
+            <span class="px-2 text-center text-xs leading-4 text-neutral-900"
+              >{option}</span
+            >
           {/each}
         </span>
       </span>
@@ -482,39 +519,67 @@
         Target
         {@render info("How each chunk is sorted.", "split", [
           ["Amplitude", "Determines loudness from the chunk's sample values."],
-          ["Frequency", "Determines brightness from a FFT of the chunk's spectrum."]
+          [
+            "Frequency",
+            "Determines brightness from a FFT of the chunk's spectrum."
+          ]
         ])}
       </span>
-      {@render choices(targets, target, (value) => (target = value as typeof target))}
+      {@render choices(
+        targets,
+        target,
+        (value) => (target = value as typeof target)
+      )}
     </div>
 
     <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Measure
-        {@render info("How a chunk is reduced to one number for comparison.", "start", [
+        {@render info(
+          "How a chunk is reduced to one number for comparison.",
+          "start",
           [
-            "Mean",
-            "Mean average of the chunk. Level for Amplitude, spectral centroid for Frequency."
-          ],
-          [
-            "Peak",
-            "Peak value for the chunk. Loudest sample for Amplitude, loudest bin for frequency."
-          ],
-          ["RMS", "Root Mean Square for the chunk. Weights louder parts more heavily than Mean."]
-        ])}
+            [
+              "Mean",
+              "Mean average of the chunk. Level for Amplitude, spectral centroid for Frequency."
+            ],
+            [
+              "Peak",
+              "Peak value for the chunk. Loudest sample for Amplitude, loudest bin for frequency."
+            ],
+            [
+              "RMS",
+              "Root Mean Square for the chunk. Weights louder parts more heavily than Mean."
+            ]
+          ]
+        )}
       </span>
-      {@render choices(measures, measure, (value) => (measure = value as typeof measure))}
+      {@render choices(
+        measures,
+        measure,
+        (value) => (measure = value as typeof measure)
+      )}
     </div>
 
     <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Direction
         {@render info("Which end the sort starts from.", "split", [
-          ["Ascending", "Lowest scores first. Quietest amplitude or darkest frequency."],
-          ["Descending", "Highest scores first. Loudest amplitude or brightest frequency."]
+          [
+            "Ascending",
+            "Lowest scores first. Quietest amplitude or darkest frequency."
+          ],
+          [
+            "Descending",
+            "Highest scores first. Loudest amplitude or brightest frequency."
+          ]
         ])}
       </span>
-      {@render choices(directions, direction, (value) => (direction = value as typeof direction))}
+      {@render choices(
+        directions,
+        direction,
+        (value) => (direction = value as typeof direction)
+      )}
     </div>
   </div>
 
@@ -537,7 +602,13 @@
       aria-label="Source on GitHub"
       class="transition-colors hover:text-neutral-300"
     >
-      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <svg
+        viewBox="0 0 16 16"
+        width="16"
+        height="16"
+        fill="currentColor"
+        aria-hidden="true"
+      >
         <path
           d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
         />
