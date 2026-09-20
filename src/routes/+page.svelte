@@ -5,6 +5,7 @@
   import Info from "@lucide/svelte/icons/info";
   import SortWorker from "$lib/sort.worker?worker";
   import { droppable } from "$lib/droppable";
+  import { version } from "../../package.json";
 
   const targets = ["Amplitude", "Frequency"] as const;
   const measures = ["Mean", "Peak", "RMS"] as const;
@@ -528,7 +529,7 @@
   {/if}
 
   <footer class="mt-auto flex items-center gap-2 pt-8 text-sm text-neutral-500">
-    &copy; 2026 Valerie Kaiser &middot;
+    &copy; 2026 Valerie Kaiser &middot; v{version} &middot;
     <a
       href="https://github.com/V-A-Kaiser/AudioSort"
       target="_blank"
