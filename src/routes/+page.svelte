@@ -635,7 +635,7 @@
     onclick={(event) => {
       if (event.target === about) about?.close();
     }}
-    class="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-neutral-700 bg-neutral-950 p-0 text-neutral-300 backdrop:bg-neutral-950/70"
+    class="m-auto w-[min(28rem,calc(100vw-2rem))] scale-95 rounded-xl border border-neutral-700 bg-neutral-950 p-0 text-neutral-300 opacity-0 transition-all transition-discrete duration-200 ease-out backdrop:bg-neutral-950/0 backdrop:transition-all backdrop:transition-discrete backdrop:duration-200 open:scale-100 open:opacity-100 open:backdrop:bg-neutral-950/70 motion-reduce:transition-none motion-reduce:backdrop:transition-none starting:open:scale-95 starting:open:opacity-0 starting:open:backdrop:bg-neutral-950/0"
   >
     <div class="flex flex-col gap-3 p-5 text-sm">
       <div class="flex flex-col">
