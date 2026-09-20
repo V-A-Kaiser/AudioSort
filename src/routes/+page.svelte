@@ -344,12 +344,15 @@
 
   {#snippet choices(options: readonly string[], current: string, pick: (value: string) => void)}
     {@const index = options.indexOf(current)}
-    {@const cell = `(100% - ${(options.length - 1) * 2}px) / ${options.length}`}
-    <div class="relative flex gap-0.5 rounded-lg border border-neutral-700 p-0.5">
+    {@const columns = `repeat(${options.length}, minmax(0, 1fr))`}
+    <div
+      class="relative grid rounded-lg border border-neutral-700 p-0.5"
+      style="grid-template-columns: {columns}"
+    >
       {#each options as option (option)}
         <button
           type="button"
-          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm text-neutral-400 hover:text-neutral-100"
+          class="cursor-pointer rounded-md py-1.5 text-sm text-neutral-400 hover:text-neutral-100"
           onclick={() => pick(option)}
         >
           {option}
@@ -358,15 +361,19 @@
 
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-0.5 flex gap-0.5 bg-neutral-100 transition-[clip-path] duration-200 ease-out"
-        style="clip-path: inset(0 calc({cell} * {options.length - 1 - index} + {(options.length -
-          1 -
-          index) *
-          2}px) 0 calc({cell} * {index} + {index * 2}px) round 0.375rem)"
+        class="pointer-events-none absolute inset-0.5 overflow-hidden rounded-md bg-neutral-100 transition-transform duration-200 ease-out"
+        style="width: calc((100% - 4px) / {options.length}); transform: translateX({index * 100}%)"
       >
-        {#each options as option (option)}
-          <span class="flex-1 py-1.5 text-center text-sm text-neutral-900">{option}</span>
-        {/each}
+        <span
+          class="absolute top-0 left-0 grid transition-transform duration-200 ease-out"
+          style="width: {options.length *
+            100}%; grid-template-columns: {columns}; transform: translateX(-{(index * 100) /
+            options.length}%)"
+        >
+          {#each options as option (option)}
+            <span class="py-1.5 text-center text-sm text-neutral-900">{option}</span>
+          {/each}
+        </span>
       </span>
     </div>
   {/snippet}
@@ -386,14 +393,17 @@
 
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-0 grid grid-cols-2 bg-neutral-100 transition-[clip-path] duration-200 ease-out"
-        style="clip-path: inset(0 {((modes.length - 1 - index) * 100) / modes.length}% 0 {(index *
-          100) /
-          modes.length}% round 0.25rem)"
+        class="pointer-events-none absolute inset-0 w-1/2 overflow-hidden rounded-sm bg-neutral-100 transition-transform duration-200 ease-out"
+        style="transform: translateX({index * 100}%)"
       >
-        {#each modes as option (option)}
-          <span class="px-2 text-center text-xs leading-4 text-neutral-900">{option}</span>
-        {/each}
+        <span
+          class="absolute top-0 left-0 grid w-[200%] grid-cols-2 transition-transform duration-200 ease-out"
+          style="transform: translateX(-{(index * 100) / modes.length}%)"
+        >
+          {#each modes as option (option)}
+            <span class="px-2 text-center text-xs leading-4 text-neutral-900">{option}</span>
+          {/each}
+        </span>
       </span>
     </span>
   {/snippet}
