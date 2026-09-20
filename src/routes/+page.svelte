@@ -332,7 +332,7 @@
               type="number"
               min="20"
               max="300"
-              step="0.1"
+              step="1"
               value={bpm}
               oninput={onBpm}
               class={entry}
