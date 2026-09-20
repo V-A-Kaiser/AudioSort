@@ -11,16 +11,26 @@
   const directions = ["Ascending", "Descending"] as const;
   const modes = ["Tempo", "Samples"] as const;
   const divisions = [
-    { label: "1/64 bar", beats: 0.0625 },
-    { label: "1/32 bar", beats: 0.125 },
-    { label: "1/16 bar", beats: 0.25 },
-    { label: "1/8 bar", beats: 0.5 },
-    { label: "1/4 bar", beats: 1 },
-    { label: "1/2 bar", beats: 2 },
-    { label: "1 bar", beats: 4 },
-    { label: "2 bars", beats: 8 },
-    { label: "4 bars", beats: 16 }
+    { label: "1/64 bar", beats: 0.0625, stub: "64th" },
+    { label: "1/32 bar", beats: 0.125, stub: "32nd" },
+    { label: "1/16 bar", beats: 0.25, stub: "16th" },
+    { label: "1/8 bar", beats: 0.5, stub: "8th" },
+    { label: "1/4 bar", beats: 1, stub: "4th" },
+    { label: "1/2 bar", beats: 2, stub: "2nd" },
+    { label: "1 bar", beats: 4, stub: "1bar" },
+    { label: "2 bars", beats: 8, stub: "2bar" },
+    { label: "4 bars", beats: 16, stub: "4bar" }
   ] as const;
+
+  const stubs = {
+    Amplitude: "amp",
+    Frequency: "freq",
+    Mean: "mean",
+    Peak: "peak",
+    RMS: "rms",
+    Ascending: "asc",
+    Descending: "desc"
+  };
 
   const field =
     "w-full cursor-pointer appearance-none rounded-lg border border-neutral-700 bg-neutral-900 py-2 pr-9 pl-3 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
@@ -75,10 +85,10 @@
   const filename = $derived(
     [
       file?.name.replace(/\.[^.]+$/, "") ?? "audio",
-      mode === "Tempo" ? `${Math.round(bpm)}bpm-${division.label}` : `${samples}-samples`,
-      target,
-      measure,
-      direction
+      mode === "Tempo" ? `${Math.round(bpm)}bpm-${division.stub}` : `${samples}smp`,
+      stubs[target],
+      stubs[measure],
+      stubs[direction]
     ]
       .join("-")
       .toLowerCase()
