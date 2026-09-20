@@ -589,17 +589,19 @@
       file={sorted.blob}
       buffer={sorted.buffer}
       order={sorted.order}
+      windowSize={samples}
       name={filename}
       download
     />
   {/if}
 
-  <footer class="mt-auto flex items-center gap-2 pt-8 text-sm text-neutral-500">
-    <span>
-      &copy; 2026 Valerie Kaiser <span class="select-none">&middot;</span>
-      v{version}
-      <span class="select-none">&middot;</span>
-    </span>
+  <footer
+    class="mt-auto flex flex-wrap items-center gap-2 pt-8 text-sm text-neutral-500"
+  >
+    <span>&copy; 2026 Valerie Kaiser</span>
+    <span class="select-none">&middot;</span>
+    <span>v{version}</span>
+    <span class="select-none">&middot;</span>
     <a
       href="https://github.com/V-A-Kaiser/AudioSort"
       target="_blank"
