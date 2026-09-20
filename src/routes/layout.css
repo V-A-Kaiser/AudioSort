@@ -2,6 +2,18 @@
 
 @theme {
   --breakpoint-xs: 30rem;
+  --animate-drift: drift 6s ease-in-out infinite alternate;
+
+  @keyframes drift {
+    0%,
+    18% {
+      transform: translateX(0);
+    }
+    82%,
+    100% {
+      transform: translateX(var(--drift));
+    }
+  }
 }
 
 :root {
