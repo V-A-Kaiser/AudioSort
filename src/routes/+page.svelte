@@ -280,9 +280,15 @@
       </span>
     {/each}
   </h1>
-  <div>
-    <h2 class="font-thin text-neutral-300">"It's sorta good..."</h2>
+  <div class="group relative cursor-help">
+    <h2 class="font-thin text-neutral-300">"It's <em class="font-normal">sort</em>a good!"</h2>
     <h3 class="text-xs font-thin italic">— Johann Carl Friedrich Gauss, Progenitor of FFT, 1805</h3>
+
+    <span
+      class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-52 -translate-x-1/2 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed text-neutral-300 opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+    >
+      ...not a real quote, yet.
+    </span>
   </div>
 
   {#if file}
