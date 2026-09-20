@@ -26,6 +26,9 @@
   let duration = $state(0);
   let error = $state<string | null>(null);
   let href = $state<string | null>(null);
+  let label = $state<HTMLElement | null>(null);
+  let labelWidth = $state(0);
+  let drift = $state(0);
 
   const ramp = (from: number, to: number) => {
     const node = (
@@ -79,6 +82,16 @@
 
   $effect(() => {
     surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
+  });
+
+  $effect(() => {
+    void name;
+    void labelWidth;
+
+    drift =
+      label && !matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? Math.max(0, label.scrollWidth - label.clientWidth)
+        : 0;
   });
 
   $effect(() => {
@@ -210,7 +223,20 @@
       </button>
 
       {#if name}
-        <p class="min-w-0 flex-1 truncate text-sm text-neutral-300">{name}</p>
+        <p
+          bind:this={label}
+          bind:clientWidth={labelWidth}
+          class="min-w-0 flex-1 text-sm text-neutral-300 {drift
+            ? 'overflow-hidden whitespace-nowrap'
+            : 'truncate'}"
+        >
+          <span
+            class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
+            style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
+          >
+            {name}
+          </span>
+        </p>
       {/if}
 
       {#if href && name}
