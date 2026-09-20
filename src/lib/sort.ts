@@ -35,17 +35,17 @@ const fft = (re: Float32Array, im: Float32Array) => {
   }
 };
 
+export type Audio = { channels: Float32Array[]; sampleRate: number; length: number };
+
 export const chunkOrder = (
-  buffer: AudioBuffer,
+  audio: Audio,
   windowSize: number,
   target: Target,
   measure: Measure = "Mean",
   direction: Direction = "Ascending"
 ) => {
-  const { numberOfChannels, sampleRate, length } = buffer;
-  const channels = Array.from({ length: numberOfChannels }, (_, index) =>
-    buffer.getChannelData(index)
-  );
+  const { channels, sampleRate, length } = audio;
+  const numberOfChannels = channels.length;
   const count = Math.ceil(length / windowSize);
   const fftSize = 2 ** Math.ceil(Math.log2(windowSize));
 
@@ -102,15 +102,13 @@ export const chunkOrder = (
 };
 
 export const stitchChunks = (
-  buffer: AudioBuffer,
+  audio: Audio,
   windowSize: number,
   order: number[],
   fade = Math.min(512, windowSize >> 3)
-) => {
-  const { numberOfChannels, sampleRate, length } = buffer;
-  const channels = Array.from({ length: numberOfChannels }, (_, index) =>
-    buffer.getChannelData(index)
-  );
+): Audio => {
+  const { channels, sampleRate, length } = audio;
+  const numberOfChannels = channels.length;
   const count = order.length;
 
   const stitched = Array.from(
@@ -136,18 +134,12 @@ export const stitchChunks = (
     }
   });
 
-  const sorted = new AudioBuffer({
-    numberOfChannels,
-    sampleRate,
-    length: count * windowSize + fade
-  });
-  stitched.forEach((data, index) => sorted.copyToChannel(data, index));
-
-  return sorted;
+  return { channels: stitched, sampleRate, length: count * windowSize + fade };
 };
 
-export const toWav = (buffer: AudioBuffer) => {
-  const { numberOfChannels, sampleRate, length } = buffer;
+export const toWav = (audio: Audio) => {
+  const { channels, sampleRate, length } = audio;
+  const numberOfChannels = channels.length;
   const bytes = length * numberOfChannels * 2;
   const view = new DataView(new ArrayBuffer(44 + bytes));
 
@@ -166,10 +158,6 @@ export const toWav = (buffer: AudioBuffer) => {
   view.setUint16(34, 16, true);
   ascii(36, "data");
   view.setUint32(40, bytes, true);
-
-  const channels = Array.from({ length: numberOfChannels }, (_, index) =>
-    buffer.getChannelData(index)
-  );
 
   let offset = 44;
   for (let i = 0; i < length; i++) {
