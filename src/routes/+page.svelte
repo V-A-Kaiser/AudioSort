@@ -55,6 +55,7 @@
     };
   };
 
+  let about = $state<HTMLDialogElement | null>(null);
   let letters: HTMLElement[] = [];
   let offsets = $state(order.map(() => 0));
   let gliding = $state(false);
@@ -594,7 +595,11 @@
   {/if}
 
   <footer class="mt-auto flex items-center gap-2 pt-8 text-sm text-neutral-500">
-    &copy; 2026 Valerie Kaiser &middot; v{version} &middot;
+    <span>
+      &copy; 2026 Valerie Kaiser <span class="select-none">&middot;</span>
+      v{version}
+      <span class="select-none">&middot;</span>
+    </span>
     <a
       href="https://github.com/V-A-Kaiser/AudioSort"
       target="_blank"
@@ -614,5 +619,47 @@
         />
       </svg>
     </a>
+    <span class="select-none">&middot;</span>
+    <button
+      type="button"
+      aria-label="About AudioSort"
+      onclick={() => about?.showModal()}
+      class="cursor-pointer transition-colors hover:text-neutral-300"
+    >
+      <Info size={18} />
+    </button>
   </footer>
+
+  <dialog
+    bind:this={about}
+    onclick={(event) => {
+      if (event.target === about) about?.close();
+    }}
+    class="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-neutral-700 bg-neutral-950 p-0 text-neutral-300 backdrop:bg-neutral-950/70"
+  >
+    <div class="flex flex-col gap-3 p-5 text-sm">
+      <div class="flex flex-col">
+        <h2 class="text-lg font-thin text-neutral-50">About AudioSort</h2>
+        <p class="text-xs text-neutral-500">v{version}</p>
+      </div>
+
+      <p class="leading-relaxed">
+        AudioSort is a concatenative synthesis audio sorting tool. It slices an
+        audio file into chunks, reduces each chunk to a single value for
+        comparison, sorts the chunks, and then stitches everything back
+        together.
+      </p>
+      <p class="leading-relaxed">
+        AudioSort was inspired in part by a concatenative synthesis plugin
+        called SKataRT.
+      </p>
+
+      <a
+        href="https://forum.ircam.fr/projects/detail/skatart/"
+        class="hover:text-red-400 hover:underline"
+      >
+        https://forum.ircam.fr/projects/detail/skatart/
+      </a>
+    </div>
+  </dialog>
 </main>
