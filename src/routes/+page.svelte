@@ -3,7 +3,7 @@
   import Waveform from "$lib/components/Waveform.svelte";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Info from "@lucide/svelte/icons/info";
-  import { chunkOrder, stitchChunks, toWav } from "$lib/sort";
+  import SortWorker from "$lib/sort.worker?worker";
   import { droppable } from "$lib/droppable";
 
   const targets = ["Amplitude", "Frequency"] as const;
@@ -59,6 +59,9 @@
   let sorted = $state<{ blob: Blob; buffer: AudioBuffer; order: number[] } | null>(null);
 
   const cache: { key: string; order: number[] }[] = [];
+
+  let worker = $state<Worker | null>(null);
+  let ticket = 0;
 
   const onWindow = settle((value) => (windowSize = value));
   const onBpm = settle((value) => (bpm = value));
@@ -165,39 +168,86 @@
   });
 
   $effect(() => {
+    const instance = new SortWorker();
+    worker = instance;
+
+    return () => {
+      instance.terminate();
+      worker = null;
+    };
+  });
+
+  $effect(() => {
     const buffer = decoded;
+    const instance = worker;
+
+    if (!buffer || !instance) return;
+
+    instance.postMessage({
+      type: "load",
+      channels: Array.from({ length: buffer.numberOfChannels }, (_, index) =>
+        buffer.getChannelData(index)
+      ),
+      sampleRate: buffer.sampleRate,
+      length: buffer.length
+    });
+  });
+
+  $effect(() => {
+    const buffer = decoded;
+    const instance = worker;
     const size = samples;
     const kind = target;
     const statistic = measure;
     const way = direction;
 
-    if (!buffer) {
+    if (!buffer || !instance) {
       sorted = null;
       return;
     }
 
     let stale = false;
+    const id = ++ticket;
 
-    void (async () => {
-      await new Promise((resolve) => setTimeout(resolve));
+    const receive = ({ data }: MessageEvent) => {
+      if (data.id !== id) return;
+      instance.removeEventListener("message", receive);
       if (stale) return;
 
       const key = `${size}|${kind}|${statistic}|${way}`;
       const index = cache.findIndex((entry) => entry.key === key);
-      const order =
-        index >= 0 ? cache[index].order : chunkOrder(buffer, size, kind, statistic, way);
-      if (stale) return;
 
       if (index >= 0) cache.splice(index, 1);
-      cache.push({ key, order });
+      cache.push({ key, order: data.order });
       if (cache.length > 32) cache.shift();
 
-      const stitched = stitchChunks(buffer, size, order);
-      sorted = { blob: toWav(stitched), buffer: stitched, order };
-    })();
+      const stitched = new AudioBuffer({
+        numberOfChannels: data.channels.length,
+        sampleRate: data.sampleRate,
+        length: data.length
+      });
+      data.channels.forEach((channel: Float32Array<ArrayBuffer>, position: number) =>
+        stitched.copyToChannel(channel, position)
+      );
+
+      sorted = { blob: data.blob, buffer: stitched, order: data.order };
+    };
+
+    instance.addEventListener("message", receive);
+    instance.postMessage({
+      type: "sort",
+      id,
+      windowSize: size,
+      order:
+        cache.find((entry) => entry.key === `${size}|${kind}|${statistic}|${way}`)?.order ?? null,
+      target: kind,
+      measure: statistic,
+      direction: way
+    });
 
     return () => {
       stale = true;
+      instance.removeEventListener("message", receive);
     };
   });
 </script>
