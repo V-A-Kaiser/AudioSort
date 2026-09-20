@@ -397,14 +397,10 @@
       <span class="flex items-center justify-between text-sm text-neutral-400">
         <span class="flex items-center gap-1.5">
           Window
-          {@render info(
-            "Length of each chunk the audio is cut into. Every chunk is scored, then the chunks are reordered by that score.",
-            "start",
-            [
-              ["Tempo", "Chunk length follows BPM and division, so cuts land on the beat."],
-              ["Samples", "Chunk length is a fixed sample count, independent of tempo."]
-            ]
-          )}
+          {@render info("The length of each chunk.", "start", [
+            ["Tempo", "Autodetected BPM w/ beat division."],
+            ["Samples", "Fixed sample length."]
+          ])}
         </span>
         {@render modeSwitch()}
       </span>
@@ -424,15 +420,8 @@
             <span class="flex items-center gap-1.5 text-xs text-neutral-500">
               BPM
               {@render info(
-                "Tempo used to size the chunks. Detected from the file on load; type over it to correct a bad guess.",
-                "start",
-                [
-                  [
-                    "Detected",
-                    "Estimated from the file on load; correct it if the guess sounds off."
-                  ],
-                  ["Typed", "Arrows step by whole numbers, but decimals can still be typed."]
-                ]
+                "The tempo used to size the chunks, detected from the file on load; enter a corrected value if necessary.",
+                "start"
               )}
             </span>
           </label>
@@ -452,15 +441,8 @@
             <span class="flex items-center gap-1.5 text-xs text-neutral-500">
               Division
               {@render info(
-                "How much musical time each chunk covers, assuming 4/4. With the tempo, this sets the chunk length.",
-                "end",
-                [
-                  [
-                    "Fractions",
-                    "1/64 to 1/2 bar cut within the beat, giving more and shorter chunks."
-                  ],
-                  ["Whole bars", "1 to 4 bars keep phrases intact, rearranging sections not beats."]
-                ]
+                "How much musical time each chunk covers, assuming a 4/4 time signature.",
+                "end"
               )}
             </span>
           </label>
@@ -481,14 +463,10 @@
     <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Target
-        {@render info(
-          "What each chunk is scored on: Amplitude for how loud it is, Frequency for how bright it is.",
-          "split",
-          [
-            ["Amplitude", "Scores loudness from the chunk\u2019s sample values."],
-            ["Frequency", "Scores brightness from an FFT of the chunk\u2019s spectrum."]
-          ]
-        )}
+        {@render info("How each chunk is sorted.", "split", [
+          ["Amplitude", "Determines loudness from the chunk's sample values."],
+          ["Frequency", "Determines brightness from a FFT of the chunk's spectrum."]
+        ])}
       </span>
       {@render choices(targets, target, (value) => (target = value as typeof target))}
     </div>
@@ -496,15 +474,17 @@
     <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Measure
-        {@render info(
-          "How a chunk becomes one number. Mean averages it, Peak takes the extreme, RMS weights louder parts more.",
-          "start",
+        {@render info("How a chunk is reduced to one number for comparison.", "start", [
           [
-            ["Mean", "Average over the chunk: mean level, or spectral centroid for Frequency."],
-            ["Peak", "The single extreme: loudest sample, or the loudest bin\u2019s frequency."],
-            ["RMS", "Root mean square, weighting louder parts more heavily than Mean."]
-          ]
-        )}
+            "Mean",
+            "Mean average of the chunk. Level for Amplitude, spectral centroid for Frequency."
+          ],
+          [
+            "Peak",
+            "Peak value for the chunk. Loudest sample for Amplitude, loudest bin for frequency."
+          ],
+          ["RMS", "Root Mean Square for the chunk. Weights louder parts more heavily than Mean."]
+        ])}
       </span>
       {@render choices(measures, measure, (value) => (measure = value as typeof measure))}
     </div>
@@ -512,14 +492,10 @@
     <div class="flex flex-col gap-2">
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         Direction
-        {@render info(
-          "Which end the sort starts from. Ascending puts the quietest or darkest chunks first.",
-          "split",
-          [
-            ["Ascending", "Lowest scores first, so quietest or darkest."],
-            ["Descending", "Highest scores first, so loudest or brightest."]
-          ]
-        )}
+        {@render info("Which end the sort starts from.", "split", [
+          ["Ascending", "Lowest scores first. Quietest amplitude or darkest frequency."],
+          ["Descending", "Highest scores first. Loudest amplitude or brightest frequency."]
+        ])}
       </span>
       {@render choices(directions, direction, (value) => (direction = value as typeof direction))}
     </div>
