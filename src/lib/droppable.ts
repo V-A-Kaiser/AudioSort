@@ -1,5 +1,9 @@
-export const droppable = (node: HTMLElement, onfile: (file: File | null) => void) => {
-  const mark = (active: boolean) => node.toggleAttribute("data-dragging", active);
+export const droppable = (
+  node: HTMLElement,
+  onfile: (file: File | null) => void
+) => {
+  const mark = (active: boolean) =>
+    node.toggleAttribute("data-dragging", active);
 
   const hover = (event: DragEvent) => {
     event.preventDefault();

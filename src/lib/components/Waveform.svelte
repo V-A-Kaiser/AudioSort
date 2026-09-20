@@ -32,7 +32,8 @@
 
   const ramp = (from: number, to: number) => {
     const node = (
-      surfer?.getMediaElement() as unknown as { getGainNode?: () => GainNode } | undefined
+      surfer?.getMediaElement() as unknown as
+        { getGainNode?: () => GainNode } | undefined
     )?.getGainNode?.();
     if (!node) return;
 
@@ -46,7 +47,8 @@
 
     if (!to) return;
 
-    const remaining = (surfer?.getDuration() ?? 0) - (surfer?.getCurrentTime() ?? 0);
+    const remaining =
+      (surfer?.getDuration() ?? 0) - (surfer?.getCurrentTime() ?? 0);
     if (remaining <= 0.024) return;
 
     node.gain.setValueAtTime(to, begin + remaining - 0.012);
@@ -57,8 +59,14 @@
     const context = document.createElement("canvas").getContext("2d");
     if (!context || !width) return "#525252";
 
-    const gradient = context.createLinearGradient(0, 0, width * Math.max(1, devicePixelRatio), 0);
-    const hue = (fraction: number) => `hsl(${250 - 250 * fraction} 100% ${lightness}%)`;
+    const gradient = context.createLinearGradient(
+      0,
+      0,
+      width * Math.max(1, devicePixelRatio),
+      0
+    );
+    const hue = (fraction: number) =>
+      `hsl(${250 - 250 * fraction} 100% ${lightness}%)`;
 
     if (order) {
       order.forEach((source, position) => {
@@ -67,7 +75,8 @@
         gradient.addColorStop((position + 1) / order.length, color);
       });
     } else {
-      for (let stop = 0; stop <= 32; stop++) gradient.addColorStop(stop / 32, hue(stop / 32));
+      for (let stop = 0; stop <= 32; stop++)
+        gradient.addColorStop(stop / 32, hue(stop / 32));
     }
 
     return gradient;
@@ -78,7 +87,10 @@
       .toString()
       .padStart(2, "0")}`;
 
-  const bars = Array.from({ length: 64 }, (_, index) => 12 + 76 * Math.abs(Math.sin(index * 1.7)));
+  const bars = Array.from(
+    { length: 64 },
+    (_, index) => 12 + 76 * Math.abs(Math.sin(index * 1.7))
+  );
 
   $effect(() => {
     surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
@@ -231,7 +243,9 @@
             : 'truncate'}"
         >
           <span
-            class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
+            class="inline-block whitespace-nowrap {drift
+              ? 'animate-drift'
+              : ''}"
             style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
           >
             {name}

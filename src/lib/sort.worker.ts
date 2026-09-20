@@ -27,7 +27,14 @@ const run = (data: Sort) => {
   }
 
   const order =
-    data.order ?? chunkOrder(source, data.windowSize, data.target, data.measure, data.direction);
+    data.order ??
+    chunkOrder(
+      source,
+      data.windowSize,
+      data.target,
+      data.measure,
+      data.direction
+    );
   const stitched = stitchChunks(source, data.windowSize, order);
 
   worker.postMessage(
@@ -42,7 +49,11 @@ worker.onmessage = ({ data }) => {
     return;
   }
 
-  source = { channels: data.channels, sampleRate: data.sampleRate, length: data.length };
+  source = {
+    channels: data.channels,
+    sampleRate: data.sampleRate,
+    length: data.length
+  };
 
   const queued = pending;
   pending = null;
