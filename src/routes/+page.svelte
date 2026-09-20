@@ -254,34 +254,60 @@
   {/snippet}
 
   {#snippet choices(options: readonly string[], current: string, pick: (value: string) => void)}
-    <div class="flex gap-0.5 rounded-lg border border-neutral-700 p-0.5">
+    {@const index = options.indexOf(current)}
+    {@const cell = `(100% - ${(options.length - 1) * 2}px) / ${options.length}`}
+    <div class="relative flex gap-0.5 rounded-lg border border-neutral-700 p-0.5">
       {#each options as option (option)}
         <button
           type="button"
-          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm {current === option
-            ? 'bg-neutral-100 text-neutral-900'
-            : 'text-neutral-400 hover:text-neutral-100'}"
+          class="flex-1 cursor-pointer rounded-md py-1.5 text-sm text-neutral-400 hover:text-neutral-100"
           onclick={() => pick(option)}
         >
           {option}
         </button>
       {/each}
+
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0.5 flex gap-0.5 bg-neutral-100 transition-[clip-path] duration-200 ease-out"
+        style="clip-path: inset(0 calc({cell} * {options.length - 1 - index} + {(options.length -
+          1 -
+          index) *
+          2}px) 0 calc({cell} * {index} + {index * 2}px) round 0.375rem)"
+      >
+        {#each options as option (option)}
+          <span class="flex-1 py-1.5 text-center text-sm text-neutral-900">{option}</span>
+        {/each}
+      </span>
     </div>
   {/snippet}
 
   {#snippet modeSwitch()}
-    <span class="flex rounded border border-neutral-700">
+    {@const index = modes.indexOf(mode)}
+    <span class="relative flex rounded border border-neutral-700">
       {#each modes as option (option)}
         <button
           type="button"
-          class="cursor-pointer rounded-sm px-2 text-xs leading-4 {mode === option
-            ? 'bg-neutral-100 text-neutral-900'
-            : 'text-neutral-400 hover:text-neutral-100'}"
+          class="flex-1 basis-0 cursor-pointer px-2 text-xs leading-4 text-neutral-400 hover:text-neutral-100"
           onclick={() => (mode = option)}
         >
           {option}
         </button>
       {/each}
+
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 flex bg-neutral-100 transition-[clip-path] duration-200 ease-out"
+        style="clip-path: inset(0 {((modes.length - 1 - index) * 100) / modes.length}% 0 {(index *
+          100) /
+          modes.length}% round 0.25rem)"
+      >
+        {#each modes as option (option)}
+          <span class="flex-1 basis-0 px-2 text-center text-xs leading-4 text-neutral-900"
+            >{option}</span
+          >
+        {/each}
+      </span>
     </span>
   {/snippet}
 
