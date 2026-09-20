@@ -335,11 +335,11 @@
 
   {#snippet modeSwitch()}
     {@const index = modes.indexOf(mode)}
-    <span class="relative flex rounded border border-neutral-700">
+    <span class="relative grid grid-cols-2 rounded border border-neutral-700">
       {#each modes as option (option)}
         <button
           type="button"
-          class="flex-1 basis-0 cursor-pointer px-2 text-xs leading-4 text-neutral-400 hover:text-neutral-100"
+          class="cursor-pointer px-2 text-xs leading-4 text-neutral-400 hover:text-neutral-100"
           onclick={() => (mode = option)}
         >
           {option}
@@ -348,15 +348,13 @@
 
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-0 flex bg-neutral-100 transition-[clip-path] duration-200 ease-out"
+        class="pointer-events-none absolute inset-0 grid grid-cols-2 bg-neutral-100 transition-[clip-path] duration-200 ease-out"
         style="clip-path: inset(0 {((modes.length - 1 - index) * 100) / modes.length}% 0 {(index *
           100) /
           modes.length}% round 0.25rem)"
       >
         {#each modes as option (option)}
-          <span class="flex-1 basis-0 px-2 text-center text-xs leading-4 text-neutral-900"
-            >{option}</span
-          >
+          <span class="px-2 text-center text-xs leading-4 text-neutral-900">{option}</span>
         {/each}
       </span>
     </span>
