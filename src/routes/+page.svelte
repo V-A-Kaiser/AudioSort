@@ -280,7 +280,10 @@
       </span>
     {/each}
   </h1>
-  <h2 class="font-thin text-neutral-300">It won't sound better, but at least it'll be tidy.</h2>
+  <div>
+    <h2 class="font-thin text-neutral-300">"It's sorta good..."</h2>
+    <h3 class="text-xs font-thin italic">— Johann Carl Friedrich Gauss, Progenitor of FFT, 1805</h3>
+  </div>
 
   {#if file}
     <div
@@ -295,14 +298,22 @@
     <Dropzone onfile={(dropped) => (file = dropped)} />
   {/if}
 
-  {#snippet info(text: string, align: "start" | "end" | "split")}
+  {#snippet info(
+    text: string,
+    align: "start" | "end" | "split",
+    points: readonly [string, string][] = []
+  )}
     <span class="group relative inline-flex items-center">
-      <button type="button" aria-label={text} class="cursor-help">
+      <button
+        type="button"
+        aria-label="{text} {points.map(([term, detail]) => `${term}: ${detail}`).join(' ')}"
+        class="cursor-help"
+      >
         <Info size={12} class="text-neutral-600 transition-colors group-hover:text-neutral-300" />
       </button>
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute bottom-full z-10 mb-2 w-36 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed font-normal text-neutral-300 opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:w-48 {align ===
+        class="pointer-events-none absolute bottom-full z-10 mb-2 w-52 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed font-normal text-neutral-300 opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:w-64 {align ===
         'start'
           ? 'left-0'
           : align === 'end'
@@ -310,6 +321,17 @@
             : 'left-0 xs:right-0 xs:left-auto'}"
       >
         {text}
+
+        {#if points.length}
+          <ul class="mt-1.5 flex flex-col gap-1">
+            {#each points as [term, detail] (term)}
+              <li class="flex gap-1.5">
+                <span aria-hidden="true" class="text-neutral-600">&bull;</span>
+                <span><span class="text-neutral-100">{term}</span> &mdash; {detail}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </span>
     </span>
   {/snippet}
@@ -377,7 +399,11 @@
           Window
           {@render info(
             "Length of each chunk the audio is cut into. Every chunk is scored, then the chunks are reordered by that score.",
-            "start"
+            "start",
+            [
+              ["Tempo", "Chunk length follows BPM and division, so cuts land on the beat."],
+              ["Samples", "Chunk length is a fixed sample count, independent of tempo."]
+            ]
           )}
         </span>
         {@render modeSwitch()}
@@ -399,7 +425,14 @@
               BPM
               {@render info(
                 "Tempo used to size the chunks. Detected from the file on load; type over it to correct a bad guess.",
-                "start"
+                "start",
+                [
+                  [
+                    "Detected",
+                    "Estimated from the file on load; correct it if the guess sounds off."
+                  ],
+                  ["Typed", "Arrows step by whole numbers, but decimals can still be typed."]
+                ]
               )}
             </span>
           </label>
@@ -420,7 +453,14 @@
               Division
               {@render info(
                 "How much musical time each chunk covers, assuming 4/4. With the tempo, this sets the chunk length.",
-                "end"
+                "end",
+                [
+                  [
+                    "Fractions",
+                    "1/64 to 1/2 bar cut within the beat, giving more and shorter chunks."
+                  ],
+                  ["Whole bars", "1 to 4 bars keep phrases intact, rearranging sections not beats."]
+                ]
               )}
             </span>
           </label>
@@ -443,7 +483,11 @@
         Target
         {@render info(
           "What each chunk is scored on: Amplitude for how loud it is, Frequency for how bright it is.",
-          "split"
+          "split",
+          [
+            ["Amplitude", "Scores loudness from the chunk\u2019s sample values."],
+            ["Frequency", "Scores brightness from an FFT of the chunk\u2019s spectrum."]
+          ]
         )}
       </span>
       {@render choices(targets, target, (value) => (target = value as typeof target))}
@@ -454,7 +498,12 @@
         Measure
         {@render info(
           "How a chunk becomes one number. Mean averages it, Peak takes the extreme, RMS weights louder parts more.",
-          "start"
+          "start",
+          [
+            ["Mean", "Average over the chunk: mean level, or spectral centroid for Frequency."],
+            ["Peak", "The single extreme: loudest sample, or the loudest bin\u2019s frequency."],
+            ["RMS", "Root mean square, weighting louder parts more heavily than Mean."]
+          ]
         )}
       </span>
       {@render choices(measures, measure, (value) => (measure = value as typeof measure))}
@@ -465,7 +514,11 @@
         Direction
         {@render info(
           "Which end the sort starts from. Ascending puts the quietest or darkest chunks first.",
-          "split"
+          "split",
+          [
+            ["Ascending", "Lowest scores first, so quietest or darkest."],
+            ["Descending", "Highest scores first, so loudest or brightest."]
+          ]
         )}
       </span>
       {@render choices(directions, direction, (value) => (direction = value as typeof direction))}
