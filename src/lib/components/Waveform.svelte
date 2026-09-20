@@ -8,17 +8,25 @@
     file,
     buffer = null,
     order = null,
+    windowSize = null,
     name = null,
     download = false
   }: {
     file: File | Blob | null;
     buffer?: AudioBuffer | null;
     order?: number[] | null;
+    windowSize?: number | null;
     name?: string | null;
     download?: boolean;
   } = $props();
 
+  const visible = 8;
+
   let container = $state<HTMLDivElement | null>(null);
+  let strip = $state<HTMLDivElement | null>(null);
+  let canvas = $state<HTMLCanvasElement | null>(null);
+  let stripWidth = $state(0);
+  let offset = $state(0);
   let width = $state(0);
   let surfer = $state<WaveSurfer | null>(null);
   let playing = $state(false);
@@ -55,6 +63,9 @@
     node.gain.linearRampToValueAtTime(0, begin + remaining);
   };
 
+  const hue = (fraction: number, lightness: number) =>
+    `hsl(${250 - 250 * fraction} 100% ${lightness}%)`;
+
   const tint = (lightness: number) => {
     const context = document.createElement("canvas").getContext("2d");
     if (!context || !width) return "#525252";
@@ -65,18 +76,16 @@
       width * Math.max(1, devicePixelRatio),
       0
     );
-    const hue = (fraction: number) =>
-      `hsl(${250 - 250 * fraction} 100% ${lightness}%)`;
 
     if (order) {
       order.forEach((source, position) => {
-        const color = hue(source / order.length);
+        const color = hue(source / order.length, lightness);
         gradient.addColorStop(position / order.length, color);
         gradient.addColorStop((position + 1) / order.length, color);
       });
     } else {
       for (let stop = 0; stop <= 32; stop++)
-        gradient.addColorStop(stop / 32, hue(stop / 32));
+        gradient.addColorStop(stop / 32, hue(stop / 32, lightness));
     }
 
     return gradient;
@@ -91,6 +100,72 @@
     { length: 64 },
     (_, index) => 12 + 76 * Math.abs(Math.sin(index * 1.7))
   );
+
+  const chunkWidth = $derived(stripWidth / visible);
+  const chunks = $derived(order && windowSize ? order.length : 0);
+  const playhead = $derived(
+    buffer && windowSize
+      ? ((position * buffer.sampleRate) / windowSize) * chunkWidth
+      : 0
+  );
+
+  $effect(() => {
+    const target = canvas;
+    if (!target || !buffer || !order || !windowSize || !stripWidth) return;
+
+    void offset;
+
+    const ratio = Math.max(1, devicePixelRatio);
+    const height = target.clientHeight;
+    target.width = stripWidth * ratio;
+    target.height = height * ratio;
+
+    const context = target.getContext("2d");
+    if (!context) return;
+
+    context.scale(ratio, ratio);
+    context.clearRect(0, 0, stripWidth, height);
+
+    const data = buffer.getChannelData(0);
+    const middle = height / 2;
+
+    for (let x = 0; x < stripWidth; x++) {
+      const start = offset + x;
+      const chunk = Math.floor(start / chunkWidth);
+      if (chunk < 0 || chunk >= order.length) continue;
+
+      const from = Math.floor((start / chunkWidth) * windowSize);
+      const to = Math.floor(((start + 1) / chunkWidth) * windowSize);
+
+      let low = 0;
+      let high = 0;
+      for (let i = from; i < to && i < data.length; i++) {
+        if (data[i] < low) low = data[i];
+        if (data[i] > high) high = data[i];
+      }
+
+      context.fillStyle = hue(order[chunk] / order.length, 55);
+      context.fillRect(
+        x,
+        middle - high * middle,
+        1,
+        Math.max(1, (high - low) * middle)
+      );
+    }
+
+    context.fillStyle = "#262626";
+    for (
+      let chunk = Math.floor(offset / chunkWidth);
+      chunk <= Math.floor((offset + stripWidth) / chunkWidth);
+      chunk++
+    )
+      context.fillRect(chunk * chunkWidth - offset, 0, 1, height);
+  });
+
+  $effect(() => {
+    if (!playing || !strip || !stripWidth) return;
+    strip.scrollLeft = playhead - stripWidth / 2;
+  });
 
   $effect(() => {
     surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
@@ -208,6 +283,41 @@
         {name}
       </span>
     </p>
+  {/if}
+
+  {#if chunks && !error}
+    <div
+      bind:this={strip}
+      bind:clientWidth={stripWidth}
+      onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
+      class="relative h-20 overflow-x-auto overflow-y-hidden rounded-lg bg-neutral-950"
+    >
+      <button
+        type="button"
+        aria-label="Seek"
+        onclick={(event) => {
+          if (!duration || !buffer || !windowSize) return;
+
+          const x =
+            event.clientX - event.currentTarget.getBoundingClientRect().left;
+          const seconds = ((x / chunkWidth) * windowSize) / buffer.sampleRate;
+          surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
+        }}
+        class="absolute top-0 left-0 h-full cursor-pointer"
+        style="width: {chunks * chunkWidth}px"
+      ></button>
+
+      <canvas
+        bind:this={canvas}
+        class="pointer-events-none absolute top-0 h-full"
+        style="left: {offset}px; width: {stripWidth}px"
+      ></canvas>
+
+      <div
+        class="pointer-events-none absolute top-0 h-full w-px bg-neutral-50"
+        style="left: {playhead}px"
+      ></div>
+    </div>
   {/if}
 
   <div class="relative" bind:clientWidth={width}>

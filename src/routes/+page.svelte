@@ -589,6 +589,7 @@
       file={sorted.blob}
       buffer={sorted.buffer}
       order={sorted.order}
+      windowSize={samples}
       name={filename}
       download
     />
