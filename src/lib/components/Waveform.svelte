@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import WaveSurfer from "wavesurfer.js";
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
@@ -20,7 +21,7 @@
     download?: boolean;
   } = $props();
 
-  const visible = 8;
+  let visible = $state(8);
 
   let container = $state<HTMLDivElement | null>(null);
   let strip = $state<HTMLDivElement | null>(null);
@@ -166,6 +167,34 @@
   $effect(() => {
     if (!playing || !strip || !stripWidth) return;
     strip.scrollLeft = playhead - stripWidth / 2;
+  });
+
+  $effect(() => {
+    const host = strip;
+    if (!host) return;
+
+    const zoom = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+
+      const next = Math.min(
+        16,
+        Math.max(1, visible * (1 + event.deltaY / 400))
+      );
+      if (next === visible) return;
+
+      const x = event.clientX - host.getBoundingClientRect().left;
+      const anchor = (host.scrollLeft + x) / chunkWidth;
+      visible = next;
+
+      void tick().then(() => {
+        host.scrollLeft = anchor * (stripWidth / next) - x;
+        offset = host.scrollLeft;
+      });
+    };
+
+    host.addEventListener("wheel", zoom, { passive: false });
+    return () => host.removeEventListener("wheel", zoom);
   });
 
   $effect(() => {
