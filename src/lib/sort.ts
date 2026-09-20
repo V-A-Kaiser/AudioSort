@@ -35,13 +35,12 @@ const fft = (re: Float32Array, im: Float32Array) => {
   }
 };
 
-export const sortChunks = (
+export const chunkOrder = (
   buffer: AudioBuffer,
   windowSize: number,
   target: Target,
   measure: Measure = "Mean",
-  direction: Direction = "Ascending",
-  fade = Math.min(512, windowSize >> 3)
+  direction: Direction = "Ascending"
 ) => {
   const { numberOfChannels, sampleRate, length } = buffer;
   const channels = Array.from({ length: numberOfChannels }, (_, index) =>
@@ -97,9 +96,22 @@ export const sortChunks = (
     return measure === "RMS" ? Math.sqrt(weighted / total) : weighted / total;
   });
 
-  const order = Array.from({ length: count }, (_, index) => index).sort((a, b) =>
+  return Array.from({ length: count }, (_, index) => index).sort((a, b) =>
     direction === "Descending" ? scores[b] - scores[a] : scores[a] - scores[b]
   );
+};
+
+export const stitchChunks = (
+  buffer: AudioBuffer,
+  windowSize: number,
+  order: number[],
+  fade = Math.min(512, windowSize >> 3)
+) => {
+  const { numberOfChannels, sampleRate, length } = buffer;
+  const channels = Array.from({ length: numberOfChannels }, (_, index) =>
+    buffer.getChannelData(index)
+  );
+  const count = order.length;
 
   const stitched = Array.from(
     { length: numberOfChannels },
@@ -131,7 +143,7 @@ export const sortChunks = (
   });
   stitched.forEach((data, index) => sorted.copyToChannel(data, index));
 
-  return { buffer: sorted, order };
+  return sorted;
 };
 
 export const toWav = (buffer: AudioBuffer) => {
