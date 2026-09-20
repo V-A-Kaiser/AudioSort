@@ -2,12 +2,21 @@
   import WaveSurfer from "wavesurfer.js";
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
+  import Download from "@lucide/svelte/icons/download";
 
   let {
     file,
     buffer = null,
-    order = null
-  }: { file: File | Blob | null; buffer?: AudioBuffer | null; order?: number[] | null } = $props();
+    order = null,
+    name = null,
+    download = false
+  }: {
+    file: File | Blob | null;
+    buffer?: AudioBuffer | null;
+    order?: number[] | null;
+    name?: string | null;
+    download?: boolean;
+  } = $props();
 
   let container = $state<HTMLDivElement | null>(null);
   let width = $state(0);
@@ -16,6 +25,7 @@
   let position = $state(0);
   let duration = $state(0);
   let error = $state<string | null>(null);
+  let href = $state<string | null>(null);
 
   const ramp = (from: number, to: number) => {
     const node = (
@@ -69,6 +79,18 @@
 
   $effect(() => {
     surfer?.setOptions({ waveColor: tint(55), progressColor: tint(55) });
+  });
+
+  $effect(() => {
+    if (!download || !file) {
+      href = null;
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    href = url;
+
+    return () => URL.revokeObjectURL(url);
   });
 
   $effect(() => {
@@ -186,6 +208,21 @@
           <Play size={16} fill="currentColor" />
         {/if}
       </button>
+
+      {#if name}
+        <p class="min-w-0 flex-1 truncate text-sm text-neutral-300">{name}</p>
+      {/if}
+
+      {#if href && name}
+        <a
+          {href}
+          download={name}
+          aria-label="Download"
+          class="flex size-8 items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+        >
+          <Download size={16} />
+        </a>
+      {/if}
 
       <p
         class="ml-auto rounded-full bg-neutral-100 px-4 py-2 font-mono text-sm text-neutral-900 select-none"
