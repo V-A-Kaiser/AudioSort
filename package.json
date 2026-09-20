@@ -1,7 +1,12 @@
 {
   "name": "audiosort",
+  "author": {
+    "name": "Valerie Kaiser",
+    "email": "github@vakaiser.com"
+  },
+  "description": "A concatenative synthesis audio sorting tool.",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
