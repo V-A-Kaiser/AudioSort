@@ -193,6 +193,23 @@
 </script>
 
 <div class="flex w-full max-w-xl flex-col gap-4" class:hidden={!file}>
+  {#if name}
+    <p
+      bind:this={label}
+      bind:clientWidth={labelWidth}
+      class="text-sm text-neutral-300 {drift
+        ? 'overflow-hidden whitespace-nowrap'
+        : 'truncate'}"
+    >
+      <span
+        class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
+        style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
+      >
+        {name}
+      </span>
+    </p>
+  {/if}
+
   <div class="relative" bind:clientWidth={width}>
     <div class="h-32" bind:this={container}></div>
 
@@ -211,11 +228,18 @@
   {#if error}
     <p class="text-center text-sm text-red-400">{error}</p>
   {:else}
-    <div class="flex items-center gap-3">
+    <div class="h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+      <div
+        class="h-full rounded-full bg-neutral-100"
+        style="width: {duration ? (position / duration) * 100 : 0}%"
+      ></div>
+    </div>
+
+    <div class="relative flex items-center gap-3">
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
-        class="flex size-8 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white disabled:cursor-default disabled:opacity-40"
+        class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-default disabled:opacity-40"
         disabled={!duration}
         onclick={() => {
           if (!playing) {
@@ -228,44 +252,25 @@
         }}
       >
         {#if playing}
-          <Pause size={16} fill="currentColor" />
+          <Pause size={14} fill="currentColor" />
         {:else}
-          <Play size={16} fill="currentColor" />
+          <Play size={14} fill="currentColor" />
         {/if}
       </button>
-
-      {#if name}
-        <p
-          bind:this={label}
-          bind:clientWidth={labelWidth}
-          class="min-w-0 flex-1 text-sm text-neutral-300 {drift
-            ? 'overflow-hidden whitespace-nowrap'
-            : 'truncate'}"
-        >
-          <span
-            class="inline-block whitespace-nowrap {drift
-              ? 'animate-drift'
-              : ''}"
-            style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
-          >
-            {name}
-          </span>
-        </p>
-      {/if}
 
       {#if href && name}
         <a
           {href}
           download={name}
           aria-label="Download"
-          class="flex size-8 items-center justify-center rounded-full border border-neutral-700 text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-100"
+          class="ml-auto flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
         >
-          <Download size={16} />
+          <Download size={14} />
         </a>
       {/if}
 
       <p
-        class="ml-auto rounded-full bg-neutral-100 px-4 py-2 font-mono text-sm text-neutral-900 select-none"
+        class="pointer-events-none absolute left-1/2 -translate-x-1/2 font-mono text-xs text-neutral-400 select-none"
       >
         {duration ? `${clock(position)} / ${clock(duration)}` : "Decoding…"}
       </p>
