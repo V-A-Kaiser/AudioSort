@@ -1,7 +1,6 @@
 <script lang="ts">
   import Dropzone from "$lib/components/Dropzone.svelte";
   import Waveform from "$lib/components/Waveform.svelte";
-  import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import Info from "@lucide/svelte/icons/info";
   import { chunkOrder, stitchChunks, toWav } from "$lib/sort";
@@ -68,6 +67,20 @@
     mode === "Tempo" && decoded && bpm > 0
       ? Math.max(256, Math.round((decoded.sampleRate * 60 * division.beats) / bpm))
       : Math.max(256, Math.round(windowSize) || 65536)
+  );
+
+  const filename = $derived(
+    [
+      file?.name.replace(/\.[^.]+$/, "") ?? "audio",
+      mode === "Tempo" ? `${Math.round(bpm)}bpm-${division.label}` : `${samples}-samples`,
+      target,
+      measure,
+      direction
+    ]
+      .join("-")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") + ".wav"
   );
 
   $effect(() => {
@@ -216,19 +229,7 @@
       }}
       class="flex w-full max-w-xl flex-col gap-3 rounded-xl outline-2 outline-offset-8 outline-transparent transition-colors outline-dashed data-dragging:bg-neutral-800 data-dragging:outline-neutral-400"
     >
-      <div class="flex items-center gap-3">
-        <p class="truncate text-lg text-neutral-200">{file.name}</p>
-        <button
-          type="button"
-          aria-label="Clear file"
-          class="ml-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-900 transition-colors hover:bg-white"
-          onclick={() => (file = null)}
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      <Waveform {file} buffer={decoded} />
+      <Waveform {file} buffer={decoded} name={file.name} />
     </div>
   {:else}
     <Dropzone onfile={(dropped) => (file = dropped)} />
@@ -414,7 +415,13 @@
   </div>
 
   {#if sorted}
-    <Waveform file={sorted.blob} buffer={sorted.buffer} order={sorted.order} />
+    <Waveform
+      file={sorted.blob}
+      buffer={sorted.buffer}
+      order={sorted.order}
+      name={filename}
+      download
+    />
   {/if}
 
   <footer class="mt-auto flex items-center gap-2 pt-8 text-sm text-neutral-500">
