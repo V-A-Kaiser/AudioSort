@@ -5,7 +5,11 @@
 </script>
 
 <svelte:head>
-  <title>AudioSort | Granular Audio Sorting</title>
+  <title>AudioSort | Concatenative Audio Sorting</title>
+  <meta
+    name="description"
+    content="Concatenative audio sorting synthesis. Split an audio file into equal chunks and sort them to create new sonic textures."
+  />
   <link rel="icon" href="/favicon.ico" sizes="any" />
 </svelte:head>
 <div class="min-h-screen bg-neutral-900 text-neutral-100">

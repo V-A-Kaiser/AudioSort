@@ -1,39 +1,10 @@
-type Target = "Amplitude" | "Frequency";
-type Measure = "Mean" | "Peak" | "RMS";
-type Direction = "Ascending" | "Descending";
+export const targets = ["Amplitude", "Frequency"] as const;
+export const measures = ["Mean", "Peak", "RMS"] as const;
+export const directions = ["Ascending", "Descending"] as const;
 
-const fft = (re: Float32Array, im: Float32Array) => {
-  const n = re.length;
-
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) {
-      [re[i], re[j]] = [re[j], re[i]];
-      [im[i], im[j]] = [im[j], im[i]];
-    }
-  }
-
-  for (let len = 2; len <= n; len <<= 1) {
-    const half = len >> 1;
-    const angle = (-2 * Math.PI) / len;
-    for (let start = 0; start < n; start += len) {
-      for (let k = 0; k < half; k++) {
-        const wr = Math.cos(angle * k);
-        const wi = Math.sin(angle * k);
-        const ar = re[start + k];
-        const ai = im[start + k];
-        const br = re[start + k + half] * wr - im[start + k + half] * wi;
-        const bi = re[start + k + half] * wi + im[start + k + half] * wr;
-        re[start + k] = ar + br;
-        im[start + k] = ai + bi;
-        re[start + k + half] = ar - br;
-        im[start + k + half] = ai - bi;
-      }
-    }
-  }
-};
+export type Target = (typeof targets)[number];
+export type Measure = (typeof measures)[number];
+export type Direction = (typeof directions)[number];
 
 export type Audio = {
   channels: Float32Array[];
@@ -41,51 +12,96 @@ export type Audio = {
   length: number;
 };
 
-export const chunkOrder = (
+export const chunkScores = (
   audio: Audio,
   windowSize: number,
   target: Target,
-  measure: Measure = "Mean",
-  direction: Direction = "Ascending"
+  measure: Measure = "Mean"
 ) => {
   const { channels, sampleRate, length } = audio;
-  const numberOfChannels = channels.length;
+  const share = 1 / channels.length;
   const count = Math.ceil(length / windowSize);
   const fftSize = 2 ** Math.ceil(Math.log2(windowSize));
+  const scores = new Float64Array(count);
 
-  const scores = Array.from({ length: count }, (_, chunk) => {
-    const offset = chunk * windowSize;
-    const mono = new Float32Array(fftSize);
-    for (let i = 0; i < windowSize; i++) {
-      if (offset + i >= length) break;
-      for (const channel of channels)
-        mono[i] += channel[offset + i] / numberOfChannels;
+  const re = new Float32Array(fftSize);
+  const im = new Float32Array(fftSize);
+
+  const cos = new Float32Array(fftSize >> 1);
+  const sin = new Float32Array(fftSize >> 1);
+  const hann = new Float32Array(windowSize);
+  if (target === "Frequency") {
+    for (let k = 0; k < fftSize >> 1; k++) {
+      cos[k] = Math.cos((-2 * Math.PI * k) / fftSize);
+      sin[k] = Math.sin((-2 * Math.PI * k) / fftSize);
     }
+    for (let i = 0; i < windowSize; i++)
+      hann[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / windowSize);
+  }
+
+  for (let chunk = 0; chunk < count; chunk++) {
+    const offset = chunk * windowSize;
+    const span = Math.min(windowSize, length - offset);
+    re.fill(0);
+
+    for (const channel of channels)
+      for (let i = 0; i < span; i++) re[i] += channel[offset + i] * share;
 
     if (target === "Amplitude") {
       if (measure === "Peak") {
         let peak = 0;
-        for (const sample of mono) peak = Math.max(peak, Math.abs(sample));
-        return peak;
+        for (let i = 0; i < span; i++) peak = Math.max(peak, Math.abs(re[i]));
+        scores[chunk] = peak;
+        continue;
       }
 
       let sum = 0;
-      for (const sample of mono)
-        sum += measure === "RMS" ? sample * sample : Math.abs(sample);
-      return measure === "RMS" ? Math.sqrt(sum / windowSize) : sum / windowSize;
+      for (let i = 0; i < span; i++)
+        sum += measure === "RMS" ? re[i] * re[i] : Math.abs(re[i]);
+      scores[chunk] =
+        measure === "RMS" ? Math.sqrt(sum / windowSize) : sum / windowSize;
+      continue;
     }
 
-    const im = new Float32Array(fftSize);
-    for (let i = 0; i < windowSize; i++)
-      mono[i] *= 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / windowSize);
-    fft(mono, im);
+    im.fill(0);
+    for (let i = 0; i < span; i++) re[i] *= hann[i];
+
+    for (let i = 1, j = 0; i < fftSize; i++) {
+      let bit = fftSize >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        const swap = re[i];
+        re[i] = re[j];
+        re[j] = swap;
+      }
+    }
+
+    for (let len = 2; len <= fftSize; len <<= 1) {
+      const half = len >> 1;
+      const stride = fftSize / len;
+      for (let start = 0; start < fftSize; start += len) {
+        for (let k = 0; k < half; k++) {
+          const wr = cos[k * stride];
+          const wi = sin[k * stride];
+          const a = start + k;
+          const b = a + half;
+          const br = re[b] * wr - im[b] * wi;
+          const bi = re[b] * wi + im[b] * wr;
+          re[b] = re[a] - br;
+          im[b] = im[a] - bi;
+          re[a] += br;
+          im[a] += bi;
+        }
+      }
+    }
 
     let weighted = 0;
     let total = 0;
     let loudest = 0;
     let peakFrequency = 0;
     for (let k = 0; k <= fftSize >> 1; k++) {
-      const magnitude = Math.hypot(mono[k], im[k]);
+      const magnitude = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
       const frequency = (k * sampleRate) / fftSize;
 
       if (magnitude > loudest) {
@@ -98,15 +114,31 @@ export const chunkOrder = (
       total += magnitude;
     }
 
-    if (measure === "Peak") return peakFrequency;
-    if (!total) return 0;
-    return measure === "RMS" ? Math.sqrt(weighted / total) : weighted / total;
-  });
+    scores[chunk] =
+      measure === "Peak"
+        ? peakFrequency
+        : !total
+          ? 0
+          : measure === "RMS"
+            ? Math.sqrt(weighted / total)
+            : weighted / total;
+  }
 
-  return Array.from({ length: count }, (_, index) => index).sort((a, b) =>
+  return scores;
+};
+
+export const orderScores = (scores: Float64Array, direction: Direction) =>
+  Array.from(scores, (_, index) => index).sort((a, b) =>
     direction === "Descending" ? scores[b] - scores[a] : scores[a] - scores[b]
   );
-};
+
+export const chunkOrder = (
+  audio: Audio,
+  windowSize: number,
+  target: Target,
+  measure: Measure = "Mean",
+  direction: Direction = "Ascending"
+) => orderScores(chunkScores(audio, windowSize, target, measure), direction);
 
 export const stitchChunks = (
   audio: Audio,
@@ -117,23 +149,24 @@ export const stitchChunks = (
   const { channels, sampleRate, length } = audio;
   const numberOfChannels = channels.length;
   const count = order.length;
+  const blend = Math.min(fade, windowSize);
 
   const stitched = Array.from(
     { length: numberOfChannels },
-    () => new Float32Array(count * windowSize + fade)
+    () => new Float32Array(count * windowSize + blend)
   );
 
   order.forEach((chunk, position) => {
     const source = chunk * windowSize;
-    const span = Math.min(windowSize + fade, length - source);
+    const span = Math.min(windowSize + blend, length - source);
     const start = position * windowSize;
 
     for (let i = 0; i < span; i++) {
       const gain =
-        i < fade
-          ? Math.sin((Math.PI / 2) * (i / fade))
+        i < blend
+          ? Math.sin((Math.PI / 2) * (i / blend))
           : i >= windowSize
-            ? Math.cos((Math.PI / 2) * ((i - windowSize) / fade))
+            ? Math.cos((Math.PI / 2) * ((i - windowSize) / blend))
             : 1;
 
       for (let index = 0; index < numberOfChannels; index++)
@@ -141,7 +174,11 @@ export const stitchChunks = (
     }
   });
 
-  return { channels: stitched, sampleRate, length: count * windowSize + fade };
+  return {
+    channels: stitched,
+    sampleRate,
+    length: count * windowSize + blend
+  };
 };
 
 export const toWav = (audio: Audio) => {

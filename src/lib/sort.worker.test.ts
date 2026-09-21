@@ -10,14 +10,18 @@ const source: Audio = (() => {
   return { channels: [data], sampleRate: 8000, length: data.length };
 })();
 
-const sort = (id: number, order: number[] | null = null) => ({
+vi.mock("./sort", { spy: true });
+
+const sort = (
+  id: number,
+  direction: "Ascending" | "Descending" = "Ascending"
+) => ({
   type: "sort" as const,
   id,
   windowSize: 64,
-  order,
   target: "Amplitude" as const,
   measure: "Mean" as const,
-  direction: "Ascending" as const
+  direction
 });
 
 const harness = async () => {
@@ -38,6 +42,7 @@ const harness = async () => {
 
   return {
     posted,
+    scores: vi.mocked((await import("./sort")).chunkScores),
     send: (data: unknown) => scope.onmessage?.({ data } as MessageEvent)
   };
 };
@@ -101,16 +106,29 @@ describe("sort.worker", () => {
     expect(posted).toHaveLength(1);
   });
 
-  it("reuses a supplied order instead of recomputing one", async () => {
-    const { posted, send } = await harness();
+  it("reuses cached scores across a direction flip", async () => {
+    const { posted, scores, send } = await harness();
 
     send({ type: "load", ...source });
-    send(sort(4, [3, 2, 1, 0]));
+    send(sort(1));
+    send(sort(2, "Descending"));
 
-    expect(posted[0].message.order).toEqual([3, 2, 1, 0]);
+    expect(scores).toHaveBeenCalledTimes(1);
+    expect(posted[1].message.order).toEqual([0, 2, 3, 1]);
 
-    const channels = posted[0].message.channels as Float32Array[];
-    expect(channels[0][32]).toBeCloseTo(0.4, 5);
+    const channels = posted[1].message.channels as Float32Array[];
+    expect(channels[0][32]).toBeCloseTo(0.8, 5);
     expect(channels[0][96]).toBeCloseTo(0.6, 5);
+  });
+
+  it("clears the score cache on a new load", async () => {
+    const { scores, send } = await harness();
+
+    send({ type: "load", ...source });
+    send(sort(1));
+    send({ type: "load", ...source });
+    send(sort(2));
+
+    expect(scores).toHaveBeenCalledTimes(2);
   });
 });

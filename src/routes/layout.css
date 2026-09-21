@@ -16,6 +16,10 @@
   }
 }
 
+@utility tooltip {
+  @apply pointer-events-none absolute z-10 w-52 rounded-lg border border-neutral-700 bg-neutral-950 p-2 text-xs leading-relaxed text-neutral-300 opacity-0 shadow-lg transition-opacity;
+}
+
 :root {
   color-scheme: dark;
 }

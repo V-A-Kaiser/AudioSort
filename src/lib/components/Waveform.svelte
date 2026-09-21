@@ -4,17 +4,19 @@
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
   import Download from "@lucide/svelte/icons/download";
+  import type WebAudioPlayer from "wavesurfer.js/dist/webaudio";
+  import type { Audio } from "$lib/sort";
 
   let {
     file,
-    buffer = null,
+    audio = null,
     order = null,
     windowSize = null,
     name = null,
     download = false
   }: {
-    file: File | Blob | null;
-    buffer?: AudioBuffer | null;
+    file: Blob;
+    audio?: Audio | null;
     order?: number[] | null;
     windowSize?: number | null;
     name?: string | null;
@@ -39,11 +41,14 @@
   let labelWidth = $state(0);
   let drift = $state(0);
 
+  const player = (instance: WaveSurfer | null) =>
+    instance?.getMediaElement() as unknown as WebAudioPlayer | undefined;
+
+  const button =
+    "flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900";
+
   const ramp = (from: number, to: number) => {
-    const node = (
-      surfer?.getMediaElement() as unknown as
-        { getGainNode?: () => GainNode } | undefined
-    )?.getGainNode?.();
+    const node = player(surfer)?.getGainNode();
     if (!node) return;
 
     const context = node.context as AudioContext;
@@ -105,14 +110,14 @@
   const chunkWidth = $derived(stripWidth / visible);
   const chunks = $derived(order && windowSize ? order.length : 0);
   const playhead = $derived(
-    buffer && windowSize
-      ? ((position * buffer.sampleRate) / windowSize) * chunkWidth
+    audio && windowSize
+      ? ((position * audio.sampleRate) / windowSize) * chunkWidth
       : 0
   );
 
   $effect(() => {
     const target = canvas;
-    if (!target || !buffer || !order || !windowSize || !stripWidth) return;
+    if (!target || !audio || !order || !windowSize || !stripWidth) return;
 
     void offset;
 
@@ -127,7 +132,7 @@
     context.scale(ratio, ratio);
     context.clearRect(0, 0, stripWidth, height);
 
-    const data = buffer.getChannelData(0);
+    const data = audio.channels[0];
     const middle = height / 2;
     const reach = middle - 16;
 
@@ -212,7 +217,7 @@
   });
 
   $effect(() => {
-    if (!download || !file) {
+    if (!download) {
       href = null;
       return;
     }
@@ -224,13 +229,16 @@
   });
 
   $effect(() => {
-    if (!container || !file || !buffer) {
+    if (!container || !audio) {
       surfer = null;
+      playing = false;
+      position = 0;
+      duration = 0;
       return;
     }
 
     const host = container;
-    const decoded = buffer;
+    const decoded = audio;
 
     playing = false;
     position = 0;
@@ -246,7 +254,6 @@
       progressColor: "#e5e5e5",
       cursorColor: "#fafafa",
       cursorWidth: 1,
-      sampleRate: 48000,
       normalize: true,
       dragToSeek: true
     });
@@ -268,21 +275,16 @@
 
     void instance.loadBlob(
       file,
-      Array.from({ length: decoded.numberOfChannels }, (_, index) =>
-        decoded.getChannelData(index).slice()
-      ),
-      decoded.duration
+      decoded.channels.map((channel) => channel.slice()),
+      decoded.length / decoded.sampleRate
     );
     surfer = instance;
 
     return () => {
       host.removeEventListener("pointerdown", duck);
 
-      const player = instance.getMediaElement() as unknown as {
-        getGainNode?: () => GainNode;
-        destroy?: () => void;
-      };
-      const node = player.getGainNode?.();
+      const media = player(instance);
+      const node = media?.getGainNode();
 
       if (node) {
         const begin = node.context.currentTime;
@@ -292,12 +294,12 @@
       }
 
       instance.destroy();
-      setTimeout(() => player.destroy?.(), 14);
+      setTimeout(() => media?.destroy(), 14);
     };
   });
 </script>
 
-<div class="flex w-full max-w-xl flex-col gap-4" class:hidden={!file}>
+<div class="flex w-full max-w-xl flex-col gap-4">
   {#if name}
     <p
       bind:this={label}
@@ -326,11 +328,11 @@
         type="button"
         aria-label="Seek"
         onclick={(event) => {
-          if (!duration || !buffer || !windowSize) return;
+          if (!duration || !audio || !windowSize) return;
 
           const x =
             event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const seconds = ((x / chunkWidth) * windowSize) / buffer.sampleRate;
+          const seconds = ((x / chunkWidth) * windowSize) / audio.sampleRate;
           surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
         }}
         class="absolute top-0 left-0 h-full cursor-pointer"
@@ -379,7 +381,7 @@
       <button
         type="button"
         aria-label={playing ? "Pause" : "Play"}
-        class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-default disabled:opacity-40"
+        class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40"
         disabled={!duration}
         onclick={() => {
           if (!playing) {
@@ -403,7 +405,7 @@
           {href}
           download={name}
           aria-label="Download"
-          class="ml-auto flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+          class="{button} ml-auto"
         >
           <Download size={14} />
         </a>

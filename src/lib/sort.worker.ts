@@ -1,22 +1,38 @@
-import { chunkOrder, stitchChunks, toWav, type Audio } from "./sort";
+import {
+  chunkScores,
+  orderScores,
+  stitchChunks,
+  toWav,
+  type Audio,
+  type Direction,
+  type Measure,
+  type Target
+} from "./sort";
 
 type Sort = {
   type: "sort";
   id: number;
   windowSize: number;
-  order: number[] | null;
-  target: Parameters<typeof chunkOrder>[2];
-  measure: Parameters<typeof chunkOrder>[3];
-  direction: Parameters<typeof chunkOrder>[4];
+  target: Target;
+  measure: Measure;
+  direction: Direction;
 };
 
-type Request = ({ type: "load" } & Audio) | Sort;
+export type SortRequest = ({ type: "load" } & Audio) | Sort;
+
+export type SortResponse = Audio & {
+  id: number;
+  order: number[];
+  blob: Blob;
+  channels: Float32Array<ArrayBuffer>[];
+};
 
 const worker = self as unknown as {
-  onmessage: ((event: MessageEvent<Request>) => void) | null;
-  postMessage: (message: unknown, transfer: Transferable[]) => void;
+  onmessage: ((event: MessageEvent<SortRequest>) => void) | null;
+  postMessage: (message: SortResponse, transfer: Transferable[]) => void;
 };
 
+const scores = new Map<string, Float64Array>();
 let source: Audio | null = null;
 let pending: Sort | null = null;
 
@@ -26,20 +42,19 @@ const run = (data: Sort) => {
     return;
   }
 
-  const order =
-    data.order ??
-    chunkOrder(
-      source,
-      data.windowSize,
-      data.target,
-      data.measure,
-      data.direction
-    );
+  const key = `${data.windowSize}|${data.target}|${data.measure}`;
+  const cached =
+    scores.get(key) ??
+    chunkScores(source, data.windowSize, data.target, data.measure);
+  scores.set(key, cached);
+
+  const order = orderScores(cached, data.direction);
   const stitched = stitchChunks(source, data.windowSize, order);
+  const channels = stitched.channels as Float32Array<ArrayBuffer>[];
 
   worker.postMessage(
-    { id: data.id, order, blob: toWav(stitched), ...stitched },
-    stitched.channels.map((channel) => channel.buffer)
+    { id: data.id, order, blob: toWav(stitched), ...stitched, channels },
+    channels.map((channel) => channel.buffer)
   );
 };
 
@@ -49,6 +64,7 @@ worker.onmessage = ({ data }) => {
     return;
   }
 
+  scores.clear();
   source = {
     channels: data.channels,
     sampleRate: data.sampleRate,
