@@ -8,6 +8,12 @@
   import { Sorter } from "$lib/sorter.svelte";
 
   const sorter = new Sorter();
+
+  const slices = $derived(
+    sorter.sorted
+      ? Array.from({ length: sorter.sorted.total }, (_, index) => index)
+      : null
+  );
 </script>
 
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
@@ -37,6 +43,10 @@
         file={sorter.file}
         audio={sorter.source}
         name={sorter.file.name}
+        order={slices}
+        windowSize={sorter.sorted?.windowSize}
+        origin={sorter.sorted?.origin}
+        slicing
       />
     </div>
   {:else}

@@ -184,6 +184,7 @@ describe("sort.worker", () => {
     send({ ...sort(1), offset: 32 });
 
     expect(posted[0].message.total).toBe(5);
+    expect(posted[0].message.origin).toBe(-32);
     expect((posted[0].message.order as number[])[0]).toBe(4);
     expect(posted[0].message.length).toBe(5 * 64 + 8);
   });

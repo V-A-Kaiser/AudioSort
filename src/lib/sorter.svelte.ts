@@ -23,6 +23,7 @@ export type Sorted = {
   audio: Audio;
   order: number[];
   total: number;
+  origin: number;
   windowSize: number;
   filename: string;
 };
@@ -181,11 +182,13 @@ export class Sorter {
       const receive = ({ data }: MessageEvent<SortResponse>) => {
         if (data.id !== id) return;
 
-        const { blob, order, total, channels, sampleRate, length } = data;
+        const { blob, order, total, origin, channels, sampleRate, length } =
+          data;
         this.sorted = {
           blob,
           order,
           total,
+          origin,
           windowSize,
           filename,
           audio: { channels, sampleRate, length }

@@ -59,4 +59,39 @@ describe("Waveform", () => {
     await expect.element(link).toHaveAttribute("download", "sorted.wav");
     expect(link.element().getAttribute("href")).toMatch(/^blob:/);
   });
+
+  it("draws the slicing strip below the waveform when slicing", async () => {
+    const above = await render(Waveform, {
+      file,
+      audio,
+      order: [0, 1, 2, 3],
+      windowSize: 2000
+    });
+    const place = (container: HTMLElement) => {
+      const seek = container.querySelector("button[aria-label=Seek]")!;
+      const wave = container.querySelector(".h-32:not([class*=overflow])")!;
+      return seek.compareDocumentPosition(wave) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+        ? "above"
+        : "below";
+    };
+    await expect
+      .element(above.getByRole("button", { name: "Seek" }))
+      .toBeInTheDocument();
+    expect(place(above.container)).toBe("above");
+    await above.unmount();
+
+    const below = await render(Waveform, {
+      file,
+      audio,
+      order: [0, 1, 2, 3, 4],
+      windowSize: 2000,
+      origin: -1000,
+      slicing: true
+    });
+    await expect
+      .element(below.getByRole("button", { name: "Seek" }))
+      .toBeInTheDocument();
+    expect(place(below.container)).toBe("below");
+  });
 });

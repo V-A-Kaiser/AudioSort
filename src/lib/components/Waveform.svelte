@@ -13,6 +13,8 @@
     order = null,
     total = null,
     windowSize = null,
+    origin = 0,
+    slicing = false,
     name = null,
     download = false
   }: {
@@ -21,6 +23,8 @@
     order?: number[] | null;
     total?: number | null;
     windowSize?: number | null;
+    origin?: number;
+    slicing?: boolean;
     name?: string | null;
     download?: boolean;
   } = $props();
@@ -85,7 +89,7 @@
       0
     );
 
-    if (order) {
+    if (order && !slicing) {
       order.forEach((source, position) => {
         const color = hue(source / (total ?? order.length), lightness);
         gradient.addColorStop(position / order.length, color);
@@ -113,7 +117,7 @@
   const chunks = $derived(order && windowSize ? order.length : 0);
   const playhead = $derived(
     audio && windowSize
-      ? ((position * audio.sampleRate) / windowSize) * chunkWidth
+      ? ((position * audio.sampleRate - origin) / windowSize) * chunkWidth
       : 0
   );
 
@@ -151,12 +155,12 @@
       const chunk = Math.floor(start / chunkWidth);
       if (chunk < 0 || chunk >= order.length) continue;
 
-      const from = Math.floor((start / chunkWidth) * windowSize);
-      const to = Math.floor(((start + 1) / chunkWidth) * windowSize);
+      const from = Math.floor((start / chunkWidth) * windowSize) + origin;
+      const to = Math.floor(((start + 1) / chunkWidth) * windowSize) + origin;
 
       let low = 0;
       let high = 0;
-      for (let i = from; i < to && i < data.length; i++) {
+      for (let i = Math.max(0, from); i < to && i < data.length; i++) {
         if (data[i] < low) low = data[i];
         if (data[i] > high) high = data[i];
       }
@@ -301,24 +305,7 @@
   });
 </script>
 
-<div class="flex w-full max-w-xl flex-col gap-4">
-  {#if name}
-    <p
-      bind:this={label}
-      bind:clientWidth={labelWidth}
-      class="text-sm text-neutral-300 {drift
-        ? 'overflow-hidden whitespace-nowrap'
-        : 'truncate'}"
-    >
-      <span
-        class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
-        style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
-      >
-        {name}
-      </span>
-    </p>
-  {/if}
-
+{#snippet chunkStrip()}
   {#if chunks && !error}
     <div
       bind:this={strip}
@@ -334,7 +321,8 @@
 
           const x =
             event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const seconds = ((x / chunkWidth) * windowSize) / audio.sampleRate;
+          const seconds =
+            ((x / chunkWidth) * windowSize + origin) / audio.sampleRate;
           surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
         }}
         class="absolute top-0 left-0 h-full cursor-pointer"
@@ -353,6 +341,29 @@
       ></div>
     </div>
   {/if}
+{/snippet}
+
+<div class="flex w-full max-w-xl flex-col gap-4">
+  {#if name}
+    <p
+      bind:this={label}
+      bind:clientWidth={labelWidth}
+      class="text-sm text-neutral-300 {drift
+        ? 'overflow-hidden whitespace-nowrap'
+        : 'truncate'}"
+    >
+      <span
+        class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
+        style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
+      >
+        {name}
+      </span>
+    </p>
+  {/if}
+
+  {#if !slicing}
+    {@render chunkStrip()}
+  {/if}
 
   <div class="relative" bind:clientWidth={width}>
     <div class="h-32" bind:this={container}></div>
@@ -368,6 +379,10 @@
       </div>
     {/if}
   </div>
+
+  {#if slicing}
+    {@render chunkStrip()}
+  {/if}
 
   {#if error}
     <p class="text-center text-sm text-red-400">{error}</p>
