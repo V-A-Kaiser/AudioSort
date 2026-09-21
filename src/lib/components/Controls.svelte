@@ -325,7 +325,7 @@
       <span class="flex items-center gap-1.5 text-sm text-neutral-400">
         <span id="beat-slice" class="whitespace-nowrap">Beat Slice</span>
         {@render info(
-          "Start chunk slicing at the first detected transient. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs.",
+          "Start chunk slicing at the first detected transient. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs. Not utilized in transient slicing mode.",
           "start"
         )}
       </span>
