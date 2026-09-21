@@ -520,15 +520,89 @@ describe("transients", () => {
     );
   });
 
-  it("never makes a chunk shorter than the minimum", () => {
+  it("never makes a chunk after the lead-in shorter than the minimum", () => {
     const edges = transients(track, 0.9, 7000);
 
     expect(edges).toHaveLength(4);
     edges
-      .slice(1)
+      .slice(2)
       .forEach((edge, index) =>
-        expect(edge - edges[index]).toBeGreaterThanOrEqual(7000)
+        expect(edge - edges[index + 1]).toBeGreaterThanOrEqual(7000)
       );
+  });
+
+  it("keeps a transient near the start of the file", () => {
+    const edges = transients(track, 0.9, 7000);
+
+    expect(edges[1]).toBeGreaterThan(hits[0] - 3 * 128);
+    expect(edges[1]).toBeLessThanOrEqual(hits[0]);
+  });
+
+  it("slices at the start of a strike, not a sharper hit inside it", () => {
+    const sampleRate = 44100;
+    const data = new Float32Array(2 * sampleRate);
+    for (let index = 0; index < 0.5 * sampleRate; index++) {
+      const time = index / sampleRate;
+      data[sampleRate + index] =
+        Math.min(1, time / 0.01) *
+          Math.exp(-time / 0.3) *
+          sine(1000, index, sampleRate) +
+        (index >= 2426
+          ? 0.6 *
+            Math.exp(-(index - 2426) / (0.05 * sampleRate)) *
+            sine(1000, index - 2426, sampleRate)
+          : 0);
+    }
+    const edges = transients(
+      { channels: [data], sampleRate, length: data.length },
+      0.9,
+      0.1 * sampleRate
+    );
+
+    expect(edges).toHaveLength(3);
+    expect(edges[1]).toBeGreaterThan(sampleRate - 3 * 128);
+    expect(edges[1]).toBeLessThanOrEqual(sampleRate);
+  });
+
+  it("slices just before an attack that rises out of a noise bed", () => {
+    const sampleRate = 44100;
+    const data = Float32Array.from(
+      { length: 2 * sampleRate },
+      (_, index) => 0.01 * ((Math.sin(index * 12.9898) * 43758.5453) % 1)
+    );
+    for (let index = 0; index < 0.3 * sampleRate; index++)
+      data[sampleRate + index] +=
+        Math.exp(-index / (0.1 * sampleRate)) * sine(200, index, sampleRate);
+    const edges = transients(
+      { channels: [data], sampleRate, length: data.length },
+      0.9,
+      0.1 * sampleRate
+    );
+
+    expect(edges).toHaveLength(3);
+    expect(edges[1]).toBeGreaterThanOrEqual(sampleRate - 2 * 128);
+    expect(edges[1]).toBeLessThanOrEqual(sampleRate);
+  });
+
+  it("prefers the stronger of two transients within the minimum", () => {
+    const data = new Float32Array(32000);
+    [
+      [8000, 0.4],
+      [12000, 1]
+    ].forEach(([hit, level]) => {
+      for (let index = 0; index < 4000; index++)
+        data[hit + index] +=
+          level * Math.exp(-index / 400) * Math.sin(index / 3);
+    });
+    const edges = transients(
+      { channels: [data], sampleRate: 8000, length: data.length },
+      0.9,
+      7000
+    );
+
+    expect(edges).toHaveLength(3);
+    expect(edges[1]).toBeGreaterThan(12000 - 3 * 128);
+    expect(edges[1]).toBeLessThanOrEqual(12000);
   });
 });
 
