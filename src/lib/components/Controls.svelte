@@ -46,7 +46,10 @@
     </div>
     <span class="flex items-center gap-1.5 text-xs text-neutral-500">
       Offset
-      {@render info("[TODO]", "middle")}
+      {@render info(
+        "The amount to shift the slicing grid. Negative values shift the waveform forward.",
+        "middle"
+      )}
     </span>
   </label>
 {/snippet}
@@ -179,10 +182,9 @@
 
   <div class="flex gap-4">
     <div class="flex flex-1 flex-col gap-2">
-      <span
-        class="flex items-center gap-1.5 text-sm whitespace-nowrap text-neutral-400"
-      >
-        <label for="remove-silence" class="cursor-pointer">Remove Silence</label
+      <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+        <label for="remove-silence" class="cursor-pointer whitespace-nowrap"
+          >Remove Silence</label
         >
         {@render info("Remove silent chunks from the sorted array.", "start")}
       </span>
@@ -199,11 +201,14 @@
     </div>
 
     <div class="flex flex-1 flex-col gap-2">
-      <span
-        class="flex items-center gap-1.5 text-sm whitespace-nowrap text-neutral-400"
-      >
-        <label for="beat-slice" class="cursor-pointer">Beat Slice</label>
-        {@render info("[TODO]", "start")}
+      <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+        <label for="beat-slice" class="cursor-pointer whitespace-nowrap"
+          >Beat Slice</label
+        >
+        {@render info(
+          "Starts the slicing just before detected drum transients. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs.",
+          "start"
+        )}
       </span>
       <label class="flex h-9.5 w-full cursor-pointer items-center">
         <input
