@@ -25,7 +25,8 @@ const sort = (
   direction,
   dropSilence,
   beatSlice: false,
-  offset: 0
+  offset: 0,
+  transient: null as { sensitivity: number; minimum: number } | null
 });
 
 const levels = (...values: number[]) => {
@@ -189,7 +190,7 @@ describe("sort.worker", () => {
     send({ ...sort(1), offset: 32 });
 
     expect(posted[0].message.total).toBe(5);
-    expect(posted[0].message.origin).toBe(-32);
+    expect((posted[0].message.edges as number[])[0]).toBe(-32);
     expect((posted[0].message.order as number[])[0]).toBe(4);
     expect(posted[0].message.length).toBe(5 * 64 + 8);
   });
@@ -218,5 +219,35 @@ describe("sort.worker", () => {
     const origin = scores.mock.calls[0][4]! + 1024;
     expect(origin).toBeGreaterThan(300 - 3 * 128);
     expect(origin).toBeLessThanOrEqual(300);
+  });
+
+  it("slices at transients and reports each chunk's span", async () => {
+    const { posted, send } = await harness();
+    const data = new Float32Array(4096);
+    [700, 2500].forEach((hit) => {
+      for (let index = 0; index < 800; index++)
+        data[hit + index] = Math.exp(-index / 80) * Math.sin(index / 3);
+    });
+
+    send({ type: "load", channels: [data], sampleRate: 8000, length: 4096 });
+    send({ ...sort(1), transient: { sensitivity: 0.9, minimum: 256 } });
+
+    const { edges, spans, order, total } = posted[0].message as {
+      edges: number[];
+      spans: number[];
+      order: number[];
+      total: number;
+    };
+    expect(edges).toHaveLength(4);
+    expect(total).toBe(3);
+    expect(spans).toEqual(
+      order.reduce(
+        (starts, chunk) => [
+          ...starts,
+          starts[starts.length - 1] + edges[chunk + 1] - edges[chunk]
+        ],
+        [0]
+      )
+    );
   });
 });

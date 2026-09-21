@@ -53,6 +53,24 @@ describe("Sorter", () => {
     expect(sorter.sorted!.filename).toContain("desc");
   });
 
+  it("slices at transients in Transient mode", async () => {
+    const sorter = create();
+    sorter.mode = "Transient";
+    sorter.sensitivity = 100;
+    sorter.minimumTime = 50;
+    sorter.take(wavFile(segments([0.2, 0.8, 0.1, 0.6])));
+
+    await vi.waitFor(
+      () => expect(sorter.sorted?.filename).toContain("transient-100"),
+      { timeout: 5000 }
+    );
+    const { edges, total } = sorter.sorted!;
+    expect(edges).toHaveLength(total + 1);
+    expect(edges[0]).toBe(0);
+    expect(edges[total]).toBe(sorter.decoded!.length);
+    expect(total).toBeGreaterThan(1);
+  });
+
   it("clears the previous file's results as soon as a new file arrives", async () => {
     const sorter = create();
     sorter.take(wavFile(segments([0.8, 0.2])));

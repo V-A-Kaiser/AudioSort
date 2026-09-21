@@ -27,6 +27,7 @@
 
   let unit = $state<Unit>("ms");
   let offsetUnit = $state<Unit>("ms");
+  let minimumUnit = $state<Unit>("ms");
   const rate = $derived(sorter.decoded?.sampleRate ?? 44100);
 
   const onWindow = settle(
@@ -34,6 +35,12 @@
       (sorter.windowTime = unit === "ms" ? value : (value * 1000) / rate)
   );
   const onBpm = settle((value) => (sorter.bpm = value));
+  const onSensitivity = settle((value) => (sorter.sensitivity = value));
+  const onMinimum = settle(
+    (value) =>
+      (sorter.minimumTime =
+        minimumUnit === "ms" ? value : (value * 1000) / rate)
+  );
   const onOffset = settle(
     (value) =>
       (sorter.offset = offsetUnit === "ms" ? value : (value * 1000) / rate)
@@ -139,8 +146,18 @@
       <span class="flex items-center gap-1.5">
         Window
         {@render info("The length of each chunk.", "start", [
-          ["Tempo", "Autodetected BPM w/ beat division."],
-          ["Time", "Fixed sample length."]
+          [
+            "Tempo",
+            "Autodetected BPM w/ beat division. Chunks are isochronous."
+          ],
+          [
+            "Time",
+            "Fixed sample/ms time length chunks. Chunks are isochronous."
+          ],
+          [
+            "Transient",
+            "Transient detection auto-slicing. Chunks are asynchronous."
+          ]
         ])}
       </span>
       <Switch
@@ -200,6 +217,67 @@
 
         {@render offset()}
       </div>
+    {:else if sorter.mode === "Transient"}
+      <div class="grid grid-cols-3 gap-4">
+        <div class="flex flex-col gap-1">
+          <div class="relative">
+            <input
+              type="number"
+              aria-label="Sensitivity"
+              min="0"
+              max="100"
+              step="1"
+              value={sorter.sensitivity}
+              oninput={onSensitivity}
+              class="{entry} pr-9"
+            />
+            <span
+              aria-hidden="true"
+              class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-neutral-500"
+              >%</span
+            >
+          </div>
+          <span class="flex items-center gap-1.5 text-xs text-neutral-500">
+            Sensitivity
+            {@render info(
+              "How strong a transient's attack must be to create a slice. Higher sensitivity creates more chunks.",
+              "start"
+            )}
+          </span>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <div class="relative">
+            <input
+              type="number"
+              aria-label="Minimum length"
+              min={minimumUnit === "ms"
+                ? Math.ceil((256 / rate) * 10000) / 10
+                : 256}
+              step={minimumUnit === "ms" ? "0.1" : "1"}
+              value={minimumUnit === "ms"
+                ? Math.round(sorter.minimumTime * 10) / 10
+                : Math.round((sorter.minimumTime * rate) / 1000)}
+              oninput={onMinimum}
+              class="{entry} pr-10"
+            />
+            {@render units(
+              "Minimum length unit",
+              minimumUnit,
+              (next) => (minimumUnit = next)
+            )}
+          </div>
+          <span class="flex items-center gap-1.5 text-xs text-neutral-500">
+            Minimum Length
+            {@render info(
+              "The minimum length of a chunk created through transient slicing.",
+              "middle"
+            )}
+          </span>
+        </div>
+
+        {@render offset()}
+      </div>
     {:else}
       <div class="grid grid-cols-2 gap-4">
         <div class="flex flex-col gap-1">
@@ -251,11 +329,14 @@
           "start"
         )}
       </span>
-      <label class="flex h-9.5 w-full cursor-pointer items-center">
+      <label
+        class="flex h-9.5 w-full cursor-pointer items-center has-disabled:cursor-not-allowed has-disabled:opacity-50"
+      >
         <input
           aria-labelledby="beat-slice"
           type="checkbox"
           role="switch"
+          disabled={sorter.mode === "Transient"}
           bind:checked={sorter.beatSlice}
           class="peer sr-only"
         />

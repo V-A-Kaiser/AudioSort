@@ -2,7 +2,7 @@ import SortWorker from "./sort.worker?worker";
 import type { SortRequest, SortResponse } from "./sort.worker";
 import type { Audio, Direction, Measure, Target } from "./sort";
 
-export const modes = ["Tempo", "Time"] as const;
+export const modes = ["Tempo", "Time", "Transient"] as const;
 export const divisions = [
   { label: "1/64 bar", beats: 0.0625, stub: "64th" },
   { label: "1/32 bar", beats: 0.125, stub: "32nd" },
@@ -23,7 +23,8 @@ export type Sorted = {
   audio: Audio;
   order: number[];
   total: number;
-  origin: number;
+  edges: number[];
+  spans: number[];
   scores: Float64Array;
   target: Target;
   measure: Measure;
@@ -55,6 +56,8 @@ export class Sorter {
   dropSilence = $state(true);
   beatSlice = $state(true);
   offset = $state(0);
+  sensitivity = $state(50);
+  minimumTime = $state(100);
   sorted = $state.raw<Sorted | null>(null);
 
   #worker = $state.raw<Worker | null>(null);
@@ -87,12 +90,23 @@ export class Sorter {
     return Math.min(this.decoded?.length ?? Infinity, Math.max(256, requested));
   });
 
+  minimum = $derived(
+    Math.max(
+      256,
+      Math.round(
+        ((this.minimumTime || 0) * (this.decoded?.sampleRate ?? 44100)) / 1000
+      )
+    )
+  );
+
   filename = $derived(
     [
       this.file?.name.replace(/\.[^.]+$/, "") ?? "audio",
       this.mode === "Tempo"
         ? `${Math.round(this.bpm)}bpm-${this.division.stub}`
-        : `${this.samples}smp`,
+        : this.mode === "Transient"
+          ? `transient-${Math.round(this.sensitivity)}-${this.minimum}smp`
+          : `${this.samples}smp`,
       stubs[this.target],
       stubs[this.measure],
       stubs[this.direction],
@@ -177,6 +191,14 @@ export class Sorter {
         offset,
         filename
       } = this;
+      const transient =
+        this.mode === "Transient"
+          ? {
+              sensitivity:
+                Math.min(100, Math.max(0, this.sensitivity || 0)) / 100,
+              minimum: this.minimum
+            }
+          : null;
 
       if (!audio || !instance) {
         this.sorted = null;
@@ -192,7 +214,8 @@ export class Sorter {
           blob,
           order,
           total,
-          origin,
+          edges,
+          spans,
           scores,
           channels,
           sampleRate,
@@ -202,7 +225,8 @@ export class Sorter {
           blob,
           order,
           total,
-          origin,
+          edges,
+          spans,
           scores,
           target,
           measure,
@@ -222,7 +246,8 @@ export class Sorter {
         direction,
         dropSilence,
         beatSlice,
-        offset: Math.round(((offset || 0) * audio.sampleRate) / 1000)
+        offset: Math.round(((offset || 0) * audio.sampleRate) / 1000),
+        transient
       } satisfies SortRequest);
 
       return () => instance.removeEventListener("message", receive);

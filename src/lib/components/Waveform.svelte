@@ -12,8 +12,7 @@
     audio = null,
     order = null,
     total = null,
-    windowSize = null,
-    origin = 0,
+    spans = null,
     slicing = false,
     describe = null,
     name = null,
@@ -23,8 +22,7 @@
     audio?: Audio | null;
     order?: number[] | null;
     total?: number | null;
-    windowSize?: number | null;
-    origin?: number;
+    spans?: number[] | null;
     slicing?: boolean;
     describe?: ((chunk: number) => string) | null;
     name?: string | null;
@@ -117,27 +115,37 @@
     (_, index) => 12 + 76 * Math.abs(Math.sin(index * 1.7))
   );
 
-  const chunkWidth = $derived(stripWidth / visible);
-  const chunks = $derived(order && windowSize ? order.length : 0);
-  const hovered = $derived.by(() => {
-    if (!hover || !windowSize || !chunks) return null;
+  const chunks = $derived(order && spans ? order.length : 0);
+  const first = $derived(spans?.[0] ?? 0);
+  const extent = $derived(spans && chunks ? spans[chunks] - first : 0);
+  const scale = $derived(
+    extent ? (stripWidth * chunks) / (visible * extent) : 0
+  );
 
-    const x = hover.view + offset;
-    const position = Math.min(chunks - 1, Math.floor(x / chunkWidth));
-    return {
-      sample: Math.max(0, Math.floor((x / chunkWidth) * windowSize) + origin),
-      chunk: order?.[position] ?? position
-    };
+  const locate = (sample: number) => {
+    let low = 0;
+    let high = chunks - 1;
+    while (low < high) {
+      const middle = (low + high + 1) >> 1;
+      if (spans![middle] <= sample) low = middle;
+      else high = middle - 1;
+    }
+    return low;
+  };
+
+  const hovered = $derived.by(() => {
+    if (!hover || !scale || !order) return null;
+
+    const sample = Math.floor((hover.view + offset) / scale) + first;
+    return { sample: Math.max(0, sample), chunk: order[locate(sample)] };
   });
   const playhead = $derived(
-    audio && windowSize
-      ? ((position * audio.sampleRate - origin) / windowSize) * chunkWidth
-      : 0
+    audio && scale ? (position * audio.sampleRate - first) * scale : 0
   );
 
   $effect(() => {
     const target = canvas;
-    if (!target || !audio || !order || !windowSize || !stripWidth) return;
+    if (!target || !audio || !order || !spans || !scale) return;
 
     void offset;
 
@@ -158,19 +166,19 @@
 
     context.fillStyle = "#525252";
     for (
-      let chunk = Math.floor(offset / chunkWidth);
-      chunk <= Math.floor((offset + stripWidth) / chunkWidth);
+      let chunk = locate(offset / scale + first);
+      chunk <= chunks && (spans[chunk] - first) * scale <= offset + stripWidth;
       chunk++
     )
-      context.fillRect(chunk * chunkWidth - offset, 0, 1, height);
+      context.fillRect((spans[chunk] - first) * scale - offset, 0, 1, height);
 
     for (let x = 0; x < stripWidth; x++) {
       const start = offset + x;
-      const chunk = Math.floor(start / chunkWidth);
-      if (chunk < 0 || chunk >= order.length) continue;
+      const from = Math.floor(start / scale) + first;
+      const to = Math.floor((start + 1) / scale) + first;
+      if (start < 0 || from >= spans[chunks]) continue;
 
-      const from = Math.floor((start / chunkWidth) * windowSize) + origin;
-      const to = Math.floor(((start + 1) / chunkWidth) * windowSize) + origin;
+      const chunk = locate(from);
 
       let low = 0;
       let high = 0;
@@ -209,11 +217,11 @@
       if (next === visible) return;
 
       const x = event.clientX - host.getBoundingClientRect().left;
-      const anchor = (host.scrollLeft + x) / chunkWidth;
+      const anchor = (host.scrollLeft + x) / scale;
       visible = next;
 
       void tick().then(() => {
-        host.scrollLeft = anchor * (stripWidth / next) - x;
+        host.scrollLeft = anchor * scale - x;
         offset = host.scrollLeft;
       });
     };
@@ -331,12 +339,11 @@
         type="button"
         aria-label="Seek"
         onclick={(event) => {
-          if (!duration || !audio || !windowSize) return;
+          if (!duration || !audio || !scale) return;
 
           const x =
             event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const seconds =
-            ((x / chunkWidth) * windowSize + origin) / audio.sampleRate;
+          const seconds = (x / scale + first) / audio.sampleRate;
           surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
         }}
         onpointermove={(event) =>
@@ -347,7 +354,7 @@
           })}
         onpointerleave={() => (hover = null)}
         class="absolute top-0 left-0 h-full cursor-pointer"
-        style="width: {chunks * chunkWidth}px"
+        style="width: {extent * scale}px"
       ></button>
 
       {#if hover && hovered && audio}
