@@ -203,8 +203,8 @@
       event.preventDefault();
 
       const next = Math.min(
-        16,
-        Math.max(1, visible * (1 + event.deltaY / 400))
+        32,
+        Math.max(0.25, visible * (1 + event.deltaY / 400))
       );
       if (next === visible) return;
 

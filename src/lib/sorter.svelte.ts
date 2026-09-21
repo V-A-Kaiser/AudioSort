@@ -2,7 +2,7 @@ import SortWorker from "./sort.worker?worker";
 import type { SortRequest, SortResponse } from "./sort.worker";
 import type { Audio, Direction, Measure, Target } from "./sort";
 
-export const modes = ["Tempo", "Samples"] as const;
+export const modes = ["Tempo", "Time"] as const;
 export const divisions = [
   { label: "1/64 bar", beats: 0.0625, stub: "64th" },
   { label: "1/32 bar", beats: 0.125, stub: "32nd" },
@@ -46,7 +46,7 @@ export class Sorter {
   notice = $state<string | null>(null);
   decoded = $state.raw<AudioBuffer | null>(null);
   mode = $state<Mode>("Tempo");
-  windowSize = $state(65536);
+  windowTime = $state(1000);
   bpm = $state(120);
   division = $state.raw<Division>(divisions[3]);
   target = $state<Target>("Amplitude");
@@ -79,7 +79,10 @@ export class Sorter {
         ? Math.round(
             (this.decoded.sampleRate * 60 * this.division.beats) / this.bpm
           )
-        : Math.round(this.windowSize) || 65536;
+        : Math.round(
+            ((this.windowTime || 1000) * (this.decoded?.sampleRate ?? 44100)) /
+              1000
+          );
 
     return Math.min(this.decoded?.length ?? Infinity, Math.max(256, requested));
   });

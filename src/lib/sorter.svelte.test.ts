@@ -11,9 +11,9 @@ describe("Sorter", () => {
     let sorter!: Sorter;
     destroy = $effect.root(() => {
       sorter = new Sorter();
-      sorter.mode = "Samples";
+      sorter.mode = "Time";
       sorter.beatSlice = false;
-      sorter.windowSize = 4096;
+      sorter.windowTime = 512;
     });
     flushSync();
     return sorter;
@@ -69,7 +69,7 @@ describe("Sorter", () => {
 
   it("clamps the window to the length of the file", async () => {
     const sorter = create();
-    sorter.windowSize = 1e9;
+    sorter.windowTime = 1e9;
     sorter.take(wavFile(segments([0.5])));
 
     await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
@@ -104,7 +104,7 @@ describe("Sorter", () => {
     await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
       timeout: 5000
     });
-    sorter.windowSize = Math.round(sorter.decoded!.sampleRate / 4);
+    sorter.windowTime = 250;
 
     await vi.waitFor(() =>
       expect(sorter.sorted?.windowSize).toBe(sorter.samples)
@@ -120,7 +120,7 @@ describe("Sorter", () => {
     await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
       timeout: 5000
     });
-    sorter.windowSize = Math.round(sorter.decoded!.sampleRate / 4);
+    sorter.windowTime = 250;
     await vi.waitFor(() =>
       expect(sorter.sorted?.windowSize).toBe(sorter.samples)
     );
