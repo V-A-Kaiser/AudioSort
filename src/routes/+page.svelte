@@ -8,6 +8,22 @@
   import { Sorter } from "$lib/sorter.svelte";
 
   const sorter = new Sorter();
+
+  const describe = $derived.by(() => {
+    const sorted = sorter.sorted;
+    if (!sorted) return null;
+
+    return (chunk: number) =>
+      sorted.target === "Frequency"
+        ? `${sorted.measure} Frequency: ${Math.round(sorted.scores[chunk])} Hz`
+        : `${sorted.measure} Amplitude: ${sorted.scores[chunk].toFixed(3)}`;
+  });
+
+  const slices = $derived(
+    sorter.sorted
+      ? Array.from({ length: sorter.sorted.total }, (_, index) => index)
+      : null
+  );
 </script>
 
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
@@ -37,6 +53,11 @@
         file={sorter.file}
         audio={sorter.source}
         name={sorter.file.name}
+        order={slices}
+        windowSize={sorter.sorted?.windowSize}
+        origin={sorter.sorted?.origin}
+        {describe}
+        slicing
       />
     </div>
   {:else}
@@ -50,6 +71,8 @@
       file={sorter.sorted.blob}
       audio={sorter.sorted.audio}
       order={sorter.sorted.order}
+      total={sorter.sorted.total}
+      {describe}
       windowSize={sorter.sorted.windowSize}
       name={sorter.sorted.filename}
       download

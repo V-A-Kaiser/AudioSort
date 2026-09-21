@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  beatPhase,
   chunkOrder,
   chunkScores,
   orderScores,
@@ -295,6 +296,18 @@ describe("stitchChunks", () => {
     expect(stitched.channels[0].every(Number.isFinite)).toBe(true);
   });
 
+  it("reads a negative origin as leading silence", () => {
+    const stitched = stitchChunks(audio, 64, [0, 1], 0, -32);
+
+    expect(Array.from(stitched.channels[0].slice(0, 32))).toEqual(
+      Array(32).fill(0)
+    );
+    expect(Array.from(stitched.channels[0].slice(32, 96))).toEqual(
+      Array(64).fill(1)
+    );
+    expect(stitched.channels[0][96]).toBe(2);
+  });
+
   it("repeats a chunk when the order repeats it", () => {
     const stitched = stitchChunks(audio, 64, [1, 1, 1], 0);
 
@@ -358,5 +371,83 @@ describe("toWav", () => {
     const view = new DataView(await blob.arrayBuffer());
     expect(view.getUint32(4, true)).toBe(36);
     expect(view.getUint32(40, true)).toBe(0);
+  });
+});
+
+describe("beatPhase", () => {
+  const sampleRate = 44100;
+  const beat = sampleRate / 2;
+  const lead = 7000;
+  const kicks = Array.from({ length: 8 }, (_, kick) => lead + kick * beat);
+
+  const track: Audio = (() => {
+    const data = new Float32Array(lead + 8 * beat);
+    for (const start of kicks) {
+      let phase = 0;
+      for (let index = 0; index < beat; index++) {
+        const time = index / sampleRate;
+        const frequency = 50 + 100 * Math.exp(-time / 0.03);
+        phase += (2 * Math.PI * frequency) / sampleRate;
+        data[start + index] = Math.exp(-time / 0.08) * Math.sin(phase);
+      }
+    }
+    return { channels: [data], sampleRate, length: data.length };
+  })();
+
+  it("puts each boundary just before a kick", () => {
+    const phase = beatPhase(track, beat);
+
+    for (const kick of kicks) {
+      const lead = (((kick - phase) % beat) + beat) % beat;
+      expect(lead).toBeGreaterThanOrEqual(0);
+      expect(lead).toBeLessThan(3 * 128);
+    }
+  });
+
+  it("gives every kick its own chunk, starting with the kick", () => {
+    const origin = beatPhase(track, beat) - beat;
+    const chunks = kicks.map((kick) => Math.floor((kick - origin) / beat));
+    expect(chunks).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+
+    const stitched = stitchChunks(track, beat, chunks, 0, origin);
+    const data = stitched.channels[0];
+    chunks.forEach((_, position) => {
+      let loudest = 0;
+      for (let index = 1; index < beat; index++)
+        if (
+          Math.abs(data[position * beat + index]) >
+          Math.abs(data[position * beat + loudest])
+        )
+          loudest = index;
+      expect(loudest).toBeLessThan(0.02 * sampleRate);
+    });
+  });
+
+  it("anchors to the first kick when the tempo drifts from the grid", () => {
+    const spacing = Math.round(beat * 1.02);
+    const drifting: Audio = (() => {
+      const data = new Float32Array(lead + 16 * spacing);
+      for (let kick = 0; kick < 16; kick++) {
+        let phase = 0;
+        for (let index = 0; index < spacing; index++) {
+          const time = index / sampleRate;
+          const frequency = 50 + 100 * Math.exp(-time / 0.03);
+          phase += (2 * Math.PI * frequency) / sampleRate;
+          data[lead + kick * spacing + index] =
+            Math.exp(-time / 0.08) * Math.sin(phase);
+        }
+      }
+      return { channels: [data], sampleRate, length: data.length };
+    })();
+
+    const early = (((lead - beatPhase(drifting, beat)) % beat) + beat) % beat;
+    expect(early).toBeGreaterThanOrEqual(0);
+    expect(early).toBeLessThan(3 * 128);
+  });
+
+  it("leaves the grid alone for audio without transients", () => {
+    const steady = mono(4, 1024, (_, index) => sine(440, index));
+
+    expect(beatPhase(steady, 1024)).toBe(0);
   });
 });
