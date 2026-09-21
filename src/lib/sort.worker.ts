@@ -29,6 +29,7 @@ export type SortResponse = Audio & {
   order: number[];
   total: number;
   origin: number;
+  scores: Float64Array;
   blob: Blob;
   channels: Float32Array<ArrayBuffer>[];
 };
@@ -90,6 +91,7 @@ const run = (data: Sort) => {
       order,
       total: ranked.length,
       origin,
+      scores: ranked,
       blob: toWav(stitched),
       ...stitched,
       channels

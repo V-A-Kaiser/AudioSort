@@ -77,6 +77,11 @@ describe("sort.worker", () => {
     expect(posted[0].message.sampleRate).toBe(8000);
     expect(posted[0].message.length).toBe(4 * 64 + 8);
     expect(posted[0].message.blob).toBeInstanceOf(Blob);
+    expect(
+      Array.from(posted[0].message.scores as Float64Array, (score) =>
+        Number(score.toFixed(3))
+      )
+    ).toEqual([0.8, 0.2, 0.6, 0.4]);
   });
 
   it("transfers the stitched channel buffers", async () => {

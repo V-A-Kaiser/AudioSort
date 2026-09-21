@@ -3,6 +3,7 @@ import { render } from "vitest-browser-svelte";
 import { toWav } from "$lib/sort";
 import { segments } from "$lib/testing/audio";
 import Waveform from "./Waveform.svelte";
+import "../../routes/layout.css";
 
 describe("Waveform", () => {
   const audio = segments([0.2, 0.8, 0.5, 0.4]);
@@ -93,5 +94,52 @@ describe("Waveform", () => {
       .element(below.getByRole("button", { name: "Seek" }))
       .toBeInTheDocument();
     expect(place(below.container)).toBe("below");
+  });
+
+  it("shows the sample, time and score under the pointer", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: [0, 3, 2, 1],
+      windowSize: 2000,
+      describe: (chunk: number) => `score ${chunk}`
+    });
+    const seek = screen.getByRole("button", { name: "Seek" });
+    await expect.element(seek).toBeInTheDocument();
+
+    const box = seek.element().getBoundingClientRect();
+    await seek.hover({
+      position: { x: (box.width / 4) * 1.7, y: box.height / 2 }
+    });
+
+    await expect
+      .element(screen.getByText(/^Sample 3.?[34]\d\d$/))
+      .toBeVisible();
+    await expect.element(screen.getByText(/^0:00\.4[1-3]\d$/)).toBeVisible();
+    await expect.element(screen.getByText("score 3")).toBeVisible();
+
+    await seek.unhover();
+    expect(screen.getByText("score 3").elements()).toHaveLength(0);
+  });
+
+  it("flips the tooltip right at the left edge of the window", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: [0, 3, 2, 1],
+      windowSize: 2000,
+      describe: (chunk: number) => `score ${chunk}`
+    });
+    const seek = screen.getByRole("button", { name: "Seek" });
+    await expect.element(seek).toBeInTheDocument();
+
+    const box = seek.element().getBoundingClientRect();
+    await seek.hover({ position: { x: 4, y: box.height / 2 } });
+    await expect.element(screen.getByText("score 0")).toBeVisible();
+
+    const tip = screen.getByText("score 0").element().parentElement!;
+    await expect
+      .poll(() => tip.getBoundingClientRect().left)
+      .toBeGreaterThanOrEqual(0);
   });
 });

@@ -15,6 +15,7 @@
     windowSize = null,
     origin = 0,
     slicing = false,
+    describe = null,
     name = null,
     download = false
   }: {
@@ -25,11 +26,19 @@
     windowSize?: number | null;
     origin?: number;
     slicing?: boolean;
+    describe?: ((chunk: number) => string) | null;
     name?: string | null;
     download?: boolean;
   } = $props();
 
   let visible = $state(8);
+  let hover = $state<{
+    x: number;
+    y: number;
+    sample: number;
+    chunk: number;
+  } | null>(null);
+  let tipWidth = $state(0);
 
   let container = $state<HTMLDivElement | null>(null);
   let strip = $state<HTMLDivElement | null>(null);
@@ -325,9 +334,49 @@
             ((x / chunkWidth) * windowSize + origin) / audio.sampleRate;
           surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
         }}
+        onpointermove={(event) => {
+          if (!audio || !windowSize) return;
+
+          const x =
+            event.clientX - event.currentTarget.getBoundingClientRect().left;
+          const position = Math.min(chunks - 1, Math.floor(x / chunkWidth));
+          hover = {
+            x: event.clientX,
+            y: event.clientY,
+            sample: Math.max(
+              0,
+              Math.floor((x / chunkWidth) * windowSize) + origin
+            ),
+            chunk: order?.[position] ?? position
+          };
+        }}
+        onpointerleave={() => (hover = null)}
         class="absolute top-0 left-0 h-full cursor-pointer"
         style="width: {chunks * chunkWidth}px"
       ></button>
+
+      {#if hover && audio}
+        {@const seconds = hover.sample / audio.sampleRate}
+        {@const flip = hover.x - 12 - tipWidth < 0}
+        <div
+          bind:offsetWidth={tipWidth}
+          class="pointer-events-none fixed z-20 -translate-y-1/2 rounded-lg border border-neutral-700/60 bg-neutral-950/60 px-2 py-1.5 font-mono text-xs whitespace-nowrap text-neutral-300 {flip
+            ? ''
+            : '-translate-x-full'}"
+          style="left: {flip ? hover.x + 12 : hover.x - 12}px; top: {hover.y}px"
+        >
+          <p>Sample: {hover.sample.toLocaleString()}</p>
+          <p>
+            Timestamp:
+            {clock(seconds)}.{Math.floor((seconds % 1) * 1000)
+              .toString()
+              .padStart(3, "0")}
+          </p>
+          {#if describe}
+            <p>{describe(hover.chunk)}</p>
+          {/if}
+        </div>
+      {/if}
 
       <canvas
         bind:this={canvas}

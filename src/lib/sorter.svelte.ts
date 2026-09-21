@@ -24,6 +24,9 @@ export type Sorted = {
   order: number[];
   total: number;
   origin: number;
+  scores: Float64Array;
+  target: Target;
+  measure: Measure;
   windowSize: number;
   filename: string;
 };
@@ -182,13 +185,24 @@ export class Sorter {
       const receive = ({ data }: MessageEvent<SortResponse>) => {
         if (data.id !== id) return;
 
-        const { blob, order, total, origin, channels, sampleRate, length } =
-          data;
+        const {
+          blob,
+          order,
+          total,
+          origin,
+          scores,
+          channels,
+          sampleRate,
+          length
+        } = data;
         this.sorted = {
           blob,
           order,
           total,
           origin,
+          scores,
+          target,
+          measure,
           windowSize,
           filename,
           audio: { channels, sampleRate, length }
