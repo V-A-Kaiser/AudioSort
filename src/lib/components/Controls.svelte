@@ -11,6 +11,8 @@
     "w-full rounded-lg border border-neutral-700 bg-neutral-900 py-2 text-sm text-neutral-100 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none";
   const entry = `${base} px-3`;
   const field = `${base} cursor-pointer appearance-none pr-9 pl-3`;
+  const toggle =
+    "relative block h-9.5 w-full rounded-lg border border-neutral-700 transition-colors duration-200 ease-out peer-focus-visible:border-neutral-400 after:absolute after:inset-y-0.5 after:left-0.5 after:w-[calc((100%-4px)/2)] after:rounded-md after:bg-neutral-600 after:transition after:duration-200 after:ease-out peer-checked:after:translate-x-full peer-checked:after:bg-neutral-100";
 
   const settle = (apply: (value: number) => void) => {
     let timer: ReturnType<typeof setTimeout>;
@@ -23,7 +25,31 @@
 
   const onWindow = settle((value) => (sorter.windowSize = value));
   const onBpm = settle((value) => (sorter.bpm = value));
+  const onOffset = settle((value) => (sorter.offset = value));
 </script>
+
+{#snippet offset()}
+  <label class="flex flex-col gap-1">
+    <div class="relative">
+      <input
+        type="number"
+        step="1"
+        value={sorter.offset}
+        oninput={onOffset}
+        class="{entry} pr-9"
+      />
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-neutral-500"
+        >ms</span
+      >
+    </div>
+    <span class="flex items-center gap-1.5 text-xs text-neutral-500">
+      Offset
+      {@render info("[TODO]", "middle")}
+    </span>
+  </label>
+{/snippet}
 
 {#snippet info(
   text: string,
@@ -71,7 +97,7 @@
 {/snippet}
 
 <div class="grid w-full max-w-xl grid-cols-1 gap-4 xs:grid-cols-2">
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col gap-2 xs:col-span-2">
     <span class="flex items-center justify-between text-sm text-neutral-400">
       <span class="flex items-center gap-1.5">
         Window
@@ -89,7 +115,7 @@
     </span>
 
     {#if sorter.mode === "Tempo"}
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <label class="flex flex-col gap-1">
           <input
             type="number"
@@ -129,52 +155,67 @@
             )}
           </span>
         </label>
+
+        {@render offset()}
       </div>
     {:else}
-      <input
-        type="number"
-        min="256"
-        step="1"
-        value={sorter.windowSize}
-        oninput={onWindow}
-        aria-label="Window"
-        class={entry}
-      />
+      <div class="grid grid-cols-2 gap-4">
+        <label class="flex flex-col gap-1">
+          <input
+            type="number"
+            min="256"
+            step="1"
+            value={sorter.windowSize}
+            oninput={onWindow}
+            class={entry}
+          />
+          <span class="text-xs text-neutral-500">Samples</span>
+        </label>
+
+        {@render offset()}
+      </div>
     {/if}
   </div>
 
-  <div class="flex flex-col gap-2">
-    <span class="flex items-center gap-1.5 text-sm text-neutral-400">
-      <label for="remove-silence" class="cursor-pointer">Remove Silence</label>
-      {@render info("Remove silent chunks from the sorted array.", "split")}
-    </span>
-    <label class="w-fit cursor-pointer">
-      <input
-        id="remove-silence"
-        type="checkbox"
-        role="switch"
-        bind:checked={sorter.dropSilence}
-        class="peer sr-only"
-      />
+  <div class="flex gap-4">
+    <div class="flex flex-1 flex-col gap-2">
       <span
-        aria-hidden="true"
-        class="relative block h-9.5 w-17 rounded-lg border border-neutral-700 transition-colors duration-200 ease-out peer-checked:border-neutral-100 peer-checked:bg-neutral-100 peer-focus-visible:border-neutral-400 after:absolute after:top-1 after:left-1 after:size-7 after:rounded-md after:bg-neutral-500 after:transition-transform after:duration-200 after:ease-out peer-checked:after:translate-x-7.5 peer-checked:after:bg-neutral-900"
-      ></span>
-    </label>
-  </div>
+        class="flex items-center gap-1.5 text-sm whitespace-nowrap text-neutral-400"
+      >
+        <label for="remove-silence" class="cursor-pointer">Remove Silence</label
+        >
+        {@render info("Remove silent chunks from the sorted array.", "start")}
+      </span>
+      <label class="flex h-9.5 w-full cursor-pointer items-center">
+        <input
+          id="remove-silence"
+          type="checkbox"
+          role="switch"
+          bind:checked={sorter.dropSilence}
+          class="peer sr-only"
+        />
+        <span aria-hidden="true" class={toggle}></span>
+      </label>
+    </div>
 
-  <div class="flex flex-col gap-2">
-    <span class="flex items-center gap-1.5 text-sm text-neutral-400">
-      Target
-      {@render info("How each chunk is sorted.", "start", [
-        ["Amplitude", "Determines loudness from the chunk's sample values."],
-        [
-          "Frequency",
-          "Determines brightness from a FFT of the chunk's spectrum."
-        ]
-      ])}
-    </span>
-    <Switch options={targets} bind:value={sorter.target} label="Target" />
+    <div class="flex flex-1 flex-col gap-2">
+      <span
+        class="flex items-center gap-1.5 text-sm whitespace-nowrap text-neutral-400"
+      >
+        <label for="beat-slice" class="cursor-pointer">Beat Slice</label>
+        {@render info("[TODO]", "start")}
+      </span>
+      <label class="flex h-9.5 w-full cursor-pointer items-center">
+        <input
+          id="beat-slice"
+          type="checkbox"
+          role="switch"
+          bind:checked={sorter.beatSlice}
+          class="peer sr-only"
+        />
+        <span aria-hidden="true" class={toggle}></span>
+      </label>
+    </div>
   </div>
 
   <div class="flex flex-col gap-2">
@@ -204,8 +245,22 @@
 
   <div class="flex flex-col gap-2">
     <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+      Target
+      {@render info("How each chunk is sorted.", "start", [
+        ["Amplitude", "Determines loudness from the chunk's sample values."],
+        [
+          "Frequency",
+          "Determines brightness from a FFT of the chunk's spectrum."
+        ]
+      ])}
+    </span>
+    <Switch options={targets} bind:value={sorter.target} label="Target" />
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <span class="flex items-center gap-1.5 text-sm text-neutral-400">
       Direction
-      {@render info("Which end the sort starts from.", "start", [
+      {@render info("Which end the sort starts from.", "split", [
         [
           "Ascending",
           "Lowest scores first. Quietest amplitude or darkest frequency."

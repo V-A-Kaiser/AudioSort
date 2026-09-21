@@ -48,7 +48,9 @@ export class Sorter {
   target = $state<Target>("Amplitude");
   measure = $state<Measure>("Mean");
   direction = $state<Direction>("Ascending");
-  dropSilence = $state(false);
+  dropSilence = $state(true);
+  beatSlice = $state(true);
+  offset = $state(0);
   sorted = $state.raw<Sorted | null>(null);
 
   #worker = $state.raw<Worker | null>(null);
@@ -164,6 +166,8 @@ export class Sorter {
         measure,
         direction,
         dropSilence,
+        beatSlice,
+        offset,
         filename
       } = this;
 
@@ -177,11 +181,11 @@ export class Sorter {
       const receive = ({ data }: MessageEvent<SortResponse>) => {
         if (data.id !== id) return;
 
-        const { blob, order, channels, sampleRate, length } = data;
+        const { blob, order, total, channels, sampleRate, length } = data;
         this.sorted = {
           blob,
           order,
-          total: Math.ceil(audio.length / windowSize),
+          total,
           windowSize,
           filename,
           audio: { channels, sampleRate, length }
@@ -196,7 +200,9 @@ export class Sorter {
         target,
         measure,
         direction,
-        dropSilence
+        dropSilence,
+        beatSlice,
+        offset: Math.round(((offset || 0) * audio.sampleRate) / 1000)
       } satisfies SortRequest);
 
       return () => instance.removeEventListener("message", receive);

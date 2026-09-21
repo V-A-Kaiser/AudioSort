@@ -23,7 +23,9 @@ const sort = (
   target: "Amplitude" as const,
   measure: "Mean" as const,
   direction,
-  dropSilence
+  dropSilence,
+  beatSlice: false,
+  offset: 0
 });
 
 const levels = (...values: number[]) => {
@@ -173,5 +175,42 @@ describe("sort.worker", () => {
     send(sort(1, "Ascending", true));
 
     expect(posted[0].message.order).toHaveLength(3);
+  });
+
+  it("shifts the slicing by the offset", async () => {
+    const { posted, send } = await harness();
+
+    send({ type: "load", ...source });
+    send({ ...sort(1), offset: 32 });
+
+    expect(posted[0].message.total).toBe(5);
+    expect((posted[0].message.order as number[])[0]).toBe(4);
+    expect(posted[0].message.length).toBe(5 * 64 + 8);
+  });
+
+  it("wraps an offset of a whole window back onto the plain grid", async () => {
+    const { posted, send } = await harness();
+
+    send({ type: "load", ...source });
+    send({ ...sort(1), offset: -64 });
+
+    expect(posted[0].message.total).toBe(4);
+    expect(posted[0].message.order).toEqual([1, 3, 2, 0]);
+  });
+
+  it("starts the grid just before each transient when beat slicing", async () => {
+    const { scores, send } = await harness();
+    const data = new Float32Array(4 * 1024);
+    for (let beat = 0; beat < 4; beat++)
+      for (let index = 0; index < 1024 - 300; index++)
+        data[300 + beat * 1024 + index] =
+          Math.exp(-index / 80) * Math.sin(index / 3);
+
+    send({ type: "load", channels: [data], sampleRate: 8000, length: 4096 });
+    send({ ...sort(1), windowSize: 1024, beatSlice: true });
+
+    const origin = scores.mock.calls[0][4]! + 1024;
+    expect(origin).toBeGreaterThan(300 - 3 * 128);
+    expect(origin).toBeLessThanOrEqual(300);
   });
 });

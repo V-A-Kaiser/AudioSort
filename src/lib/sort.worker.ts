@@ -1,4 +1,5 @@
 import {
+  beatPhase,
   chunkScores,
   orderScores,
   stitchChunks,
@@ -17,6 +18,8 @@ type Sort = {
   measure: Measure;
   direction: Direction;
   dropSilence: boolean;
+  beatSlice: boolean;
+  offset: number;
 };
 
 export type SortRequest = ({ type: "load" } & Audio) | Sort;
@@ -24,6 +27,7 @@ export type SortRequest = ({ type: "load" } & Audio) | Sort;
 export type SortResponse = Audio & {
   id: number;
   order: number[];
+  total: number;
   blob: Blob;
   channels: Float32Array<ArrayBuffer>[];
 };
@@ -34,6 +38,7 @@ const worker = self as unknown as {
 };
 
 const scores = new Map<string, Float64Array>();
+const phases = new Map<number, number>();
 let source: Audio | null = null;
 let pending: Sort | null = null;
 
@@ -44,15 +49,30 @@ const run = (data: Sort) => {
   }
 
   const audio = source;
+  const { windowSize } = data;
+
+  const origin = (() => {
+    const phase = data.beatSlice
+      ? (phases.get(windowSize) ?? beatPhase(audio, windowSize))
+      : 0;
+    if (data.beatSlice) phases.set(windowSize, phase);
+
+    const start =
+      (((phase + data.offset) % windowSize) + windowSize) % windowSize;
+    return start ? start - windowSize : 0;
+  })();
+
   const score = (target: Target, measure: Measure) => {
-    const key = `${data.windowSize}|${target}|${measure}`;
+    const key = `${windowSize}|${origin}|${target}|${measure}`;
     const cached =
-      scores.get(key) ?? chunkScores(audio, data.windowSize, target, measure);
+      scores.get(key) ??
+      chunkScores(audio, windowSize, target, measure, origin);
     scores.set(key, cached);
     return cached;
   };
 
-  const sorted = orderScores(score(data.target, data.measure), data.direction);
+  const ranked = score(data.target, data.measure);
+  const sorted = orderScores(ranked, data.direction);
   const order = (() => {
     if (!data.dropSilence) return sorted;
 
@@ -60,11 +80,18 @@ const run = (data: Sort) => {
     const audible = sorted.filter((chunk) => loudness[chunk] >= 0.001);
     return audible.length ? audible : sorted;
   })();
-  const stitched = stitchChunks(audio, data.windowSize, order);
+  const stitched = stitchChunks(audio, windowSize, order, undefined, origin);
   const channels = stitched.channels as Float32Array<ArrayBuffer>[];
 
   worker.postMessage(
-    { id: data.id, order, blob: toWav(stitched), ...stitched, channels },
+    {
+      id: data.id,
+      order,
+      total: ranked.length,
+      blob: toWav(stitched),
+      ...stitched,
+      channels
+    },
     channels.map((channel) => channel.buffer)
   );
 };
@@ -76,6 +103,7 @@ worker.onmessage = ({ data }) => {
   }
 
   scores.clear();
+  phases.clear();
   source = {
     channels: data.channels,
     sampleRate: data.sampleRate,

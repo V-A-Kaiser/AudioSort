@@ -12,6 +12,7 @@ describe("Sorter", () => {
     destroy = $effect.root(() => {
       sorter = new Sorter();
       sorter.mode = "Samples";
+      sorter.beatSlice = false;
       sorter.windowSize = 4096;
     });
     flushSync();
@@ -111,5 +112,22 @@ describe("Sorter", () => {
     expect(sorter.sorted!.order).toEqual([2, 0]);
     expect(sorter.sorted!.total).toBe(3);
     expect(sorter.sorted!.filename).toMatch(/-trim\.wav$/);
+  });
+
+  it("shifts the slicing by an offset in milliseconds", async () => {
+    const sorter = create();
+    sorter.take(wavFile(segments([0.8, 0.2, 0.6, 0.4])));
+    await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
+      timeout: 5000
+    });
+    sorter.windowSize = Math.round(sorter.decoded!.sampleRate / 4);
+    await vi.waitFor(() =>
+      expect(sorter.sorted?.windowSize).toBe(sorter.samples)
+    );
+    expect(sorter.sorted!.total).toBe(4);
+
+    sorter.offset = 10;
+
+    await vi.waitFor(() => expect(sorter.sorted!.total).toBe(5));
   });
 });

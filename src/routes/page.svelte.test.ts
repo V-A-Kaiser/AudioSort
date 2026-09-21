@@ -16,7 +16,13 @@ describe("page", () => {
       .toBeInTheDocument();
     await expect
       .element(screen.getByRole("switch", { name: "Remove Silence" }))
-      .toBeInTheDocument();
+      .toBeChecked();
+    await expect
+      .element(screen.getByRole("switch", { name: "Beat Slice" }))
+      .toBeChecked();
+    await expect
+      .element(screen.getByRole("spinbutton", { name: /^Offset/ }))
+      .toHaveValue(0);
   });
 
   it("sorts a chosen file into a downloadable result", async () => {
