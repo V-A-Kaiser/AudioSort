@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { chunkOrder, stitchChunks, toWav, type Audio } from "./sort";
+import {
+  chunkOrder,
+  chunkScores,
+  orderScores,
+  stitchChunks,
+  toWav,
+  type Audio
+} from "./sort";
 
 const mono = (
   count: number,
@@ -139,6 +146,58 @@ describe("chunkOrder / frequency", () => {
     expect(chunkOrder(quiet, 1024, "Frequency", "Mean")).toEqual([1, 0]);
     expect(chunkOrder(quiet, 1024, "Frequency", "Peak")).toEqual([1, 0]);
   });
+
+  it("orders tones with a window that is not a power of two", () => {
+    const odd = mono(3, 1000, (chunk, index) =>
+      sine(frequencies[chunk], index)
+    );
+
+    expect(chunkOrder(odd, 1000, "Frequency", "Peak")).toEqual([1, 2, 0]);
+    expect(chunkOrder(odd, 1000, "Frequency", "Mean")).toEqual([1, 2, 0]);
+  });
+
+  it("scores the stereo downmix", () => {
+    const left = new Float32Array(2048);
+    const right = new Float32Array(2048);
+    for (let index = 0; index < 1024; index++) {
+      left[index] = sine(1000, index);
+      right[index] = sine(1000, index);
+      left[1024 + index] = sine(250, index);
+      right[1024 + index] = sine(250, index);
+    }
+
+    const stereo: Audio = {
+      channels: [left, right],
+      sampleRate: 8000,
+      length: 2048
+    };
+    expect(chunkOrder(stereo, 1024, "Frequency", "Peak")).toEqual([1, 0]);
+  });
+});
+
+describe("chunkScores / orderScores", () => {
+  const audio = mono(4, 64, (chunk) => [0.8, 0.2, 0.6, 0.4][chunk]);
+
+  it("returns one score per chunk", () => {
+    const scores = chunkScores(audio, 64, "Amplitude");
+
+    expect(scores).toHaveLength(4);
+    expect(scores[0]).toBeCloseTo(0.8, 5);
+    expect(scores[1]).toBeCloseTo(0.2, 5);
+  });
+
+  it("reverses the order when descending", () => {
+    const scores = chunkScores(audio, 64, "Amplitude");
+
+    expect(orderScores(scores, "Descending")).toEqual(
+      orderScores(scores, "Ascending").reverse()
+    );
+  });
+
+  it("gives a single chunk when the window exceeds the file", () => {
+    expect(chunkOrder(audio, 1024, "Amplitude")).toEqual([0]);
+    expect(chunkOrder(audio, 1024, "Frequency")).toEqual([0]);
+  });
 });
 
 describe("stitchChunks", () => {
@@ -219,6 +278,21 @@ describe("stitchChunks", () => {
     expect(stitched.channels[0][64]).toBe(1);
     expect(stitched.channels[1][0]).toBe(4);
     expect(stitched.channels[1][64]).toBe(3);
+  });
+
+  it("pads a window longer than the file with silence", () => {
+    const stitched = stitchChunks(audio, 1024, [0], 0);
+
+    expect(stitched.length).toBe(1024);
+    expect(stitched.channels[0][255]).toBe(4);
+    expect(stitched.channels[0][256]).toBe(0);
+  });
+
+  it("caps a fade longer than the window at the window", () => {
+    const stitched = stitchChunks(audio, 64, [0, 1], 256);
+
+    expect(stitched.length).toBe(2 * 64 + 64);
+    expect(stitched.channels[0].every(Number.isFinite)).toBe(true);
   });
 
   it("repeats a chunk when the order repeats it", () => {
