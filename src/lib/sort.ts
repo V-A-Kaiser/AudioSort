@@ -155,7 +155,7 @@ export const chunkScores = (
   return scores;
 };
 
-const onsets = (audio: Audio, hop: number) => {
+const onsets = (audio: Audio, hop: number, log = false) => {
   const { channels, length } = audio;
   const frames = Math.floor(length / hop);
   const level = new Float64Array(frames);
@@ -165,7 +165,8 @@ const onsets = (audio: Audio, hop: number) => {
     for (const channel of channels)
       for (let i = frame * hop; i < (frame + 1) * hop; i++)
         sum += channel[i] * channel[i];
-    level[frame] = Math.sqrt(sum / (hop * channels.length));
+    const rms = Math.sqrt(sum / (hop * channels.length));
+    level[frame] = log ? Math.log(1e-6 + rms) : rms;
   }
 
   const rises = new Float64Array(frames);
@@ -186,6 +187,40 @@ export const beatPhase = (audio: Audio, windowSize: number) => {
 
   const first = rises.findIndex((rise) => rise >= 0.3 * strongest);
   return ((((first - 1) * hop) % windowSize) + windowSize) % windowSize;
+};
+
+export const tempo = (audio: Audio) => {
+  const hop = 256;
+  const { rises } = onsets(audio, hop, true);
+  const frames = rises.length;
+  const mean = rises.reduce((sum, rise) => sum + rise, 0) / frames;
+  if (!(mean >= 0.01)) return null;
+
+  const fps = audio.sampleRate / hop;
+
+  const shortest = Math.floor((60 * fps) / 200);
+  const longest = Math.min(Math.ceil((60 * fps) / 60), frames - 2);
+  if (shortest >= longest) return null;
+
+  const scores = Array.from({ length: longest - shortest + 3 }, (_, index) => {
+    const lag = shortest - 1 + index;
+    let sum = 0;
+    for (let frame = 0; frame + lag < frames; frame++)
+      sum += (rises[frame] - mean) * (rises[frame + lag] - mean);
+    return sum / (frames - lag);
+  });
+  const weigh = (index: number) =>
+    scores[index] *
+    Math.exp(-0.5 * Math.log2((60 * fps) / (shortest - 1 + index) / 120) ** 2);
+
+  let best = 1;
+  for (let index = 2; index < scores.length - 1; index++)
+    if (weigh(index) > weigh(best)) best = index;
+  if (scores[best] <= 0) return null;
+
+  const [before, peak, after] = scores.slice(best - 1, best + 2);
+  const shift = (before - after) / (2 * (before - 2 * peak + after)) || 0;
+  return (60 * fps) / (shortest - 1 + best + shift);
 };
 
 export const transients = (

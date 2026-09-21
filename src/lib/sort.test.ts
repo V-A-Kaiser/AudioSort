@@ -5,6 +5,7 @@ import {
   chunkScores,
   orderScores,
   stitchChunks,
+  tempo,
   toWav,
   transients,
   type Audio
@@ -528,5 +529,40 @@ describe("transients", () => {
       .forEach((edge, index) =>
         expect(edge - edges[index]).toBeGreaterThanOrEqual(7000)
       );
+  });
+});
+
+describe("tempo", () => {
+  const kicks = (bpm: number, seconds = 30, sampleRate = 44100): Audio => {
+    const data = new Float32Array(seconds * sampleRate);
+    const beat = (60 / bpm) * sampleRate;
+    for (let start = 0; start < data.length; start += beat) {
+      let phase = 0;
+      for (let index = 0; index < 0.2 * sampleRate; index++) {
+        const time = index / sampleRate;
+        phase +=
+          (2 * Math.PI * (50 + 100 * Math.exp(-time / 0.03))) / sampleRate;
+        const at = Math.round(start) + index;
+        if (at < data.length)
+          data[at] = Math.exp(-time / 0.08) * Math.sin(phase);
+      }
+    }
+    return { channels: [data], sampleRate, length: data.length };
+  };
+
+  it.each([90, 110, 122.5, 140, 167])("detects %d BPM", (bpm) => {
+    expect(tempo(kicks(bpm))).toBeCloseTo(bpm, 0);
+  });
+
+  it("detects the tempo at other sample rates", () => {
+    expect(tempo(kicks(128, 30, 48000))).toBeCloseTo(128, 0);
+  });
+
+  it("finds no tempo in a steady tone", () => {
+    expect(tempo(mono(64, 1024, (_, index) => sine(440, index)))).toBe(null);
+  });
+
+  it("finds no tempo in audio too short to hold a beat", () => {
+    expect(tempo(mono(1, 1024, () => 0.5))).toBe(null);
   });
 });
