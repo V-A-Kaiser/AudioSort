@@ -5,6 +5,12 @@ description: Write a Conventional Commits message compressed to intent only. Use
 
 Write concise commit messages in the Conventional Commits format.
 
+## Before committing
+
+- Run `git branch --show-current` immediately before committing. Never rely on a git status snapshot from earlier in the session — the user may have switched branches since.
+- Commit on the current branch. Do not create or switch branches unless the user asks.
+- If the current branch is the default branch (e.g. `main`), stop and ask the user which branch to commit on.
+
 ## Rules
 
 **Subject line:**
