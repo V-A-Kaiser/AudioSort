@@ -206,7 +206,7 @@
           >Beat Slice</label
         >
         {@render info(
-          "Start chunk slicing at the first detected drum transient. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs.",
+          "Start chunk slicing at the first detected transient. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs.",
           "start"
         )}
       </span>
