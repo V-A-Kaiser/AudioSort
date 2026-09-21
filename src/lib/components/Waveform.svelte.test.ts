@@ -113,9 +113,11 @@ describe("Waveform", () => {
     });
 
     await expect
-      .element(screen.getByText(/^Sample 3.?[34]\d\d$/))
+      .element(screen.getByText(/^Sample: 3.?[34]\d\d$/))
       .toBeVisible();
-    await expect.element(screen.getByText(/^0:00\.4[1-3]\d$/)).toBeVisible();
+    await expect
+      .element(screen.getByText(/^Timestamp:\s*0:00\.4[1-3]\d$/))
+      .toBeVisible();
     await expect.element(screen.getByText("score 3")).toBeVisible();
 
     await seek.unhover();
@@ -141,5 +143,27 @@ describe("Waveform", () => {
     await expect
       .poll(() => tip.getBoundingClientRect().left)
       .toBeGreaterThanOrEqual(0);
+  });
+
+  it("updates the tooltip when the strip scrolls under a still pointer", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: Array.from({ length: 16 }, (_, index) => index),
+      windowSize: 500,
+      describe: (chunk: number) => `score ${chunk}`
+    });
+    const seek = screen.getByRole("button", { name: "Seek" });
+    await expect.element(seek).toBeInTheDocument();
+
+    const strip = seek.element().parentElement!;
+    const chunk = strip.clientWidth / 8;
+    await seek.hover({
+      position: { x: chunk * 1.5, y: seek.element().clientHeight / 2 }
+    });
+    await expect.element(screen.getByText("score 1")).toBeVisible();
+
+    strip.scrollLeft = chunk * 4;
+    await expect.element(screen.getByText("score 5")).toBeVisible();
   });
 });

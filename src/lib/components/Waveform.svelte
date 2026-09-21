@@ -32,12 +32,7 @@
   } = $props();
 
   let visible = $state(8);
-  let hover = $state<{
-    x: number;
-    y: number;
-    sample: number;
-    chunk: number;
-  } | null>(null);
+  let hover = $state<{ x: number; y: number; view: number } | null>(null);
   let tipWidth = $state(0);
 
   let container = $state<HTMLDivElement | null>(null);
@@ -124,6 +119,16 @@
 
   const chunkWidth = $derived(stripWidth / visible);
   const chunks = $derived(order && windowSize ? order.length : 0);
+  const hovered = $derived.by(() => {
+    if (!hover || !windowSize || !chunks) return null;
+
+    const x = hover.view + offset;
+    const position = Math.min(chunks - 1, Math.floor(x / chunkWidth));
+    return {
+      sample: Math.max(0, Math.floor((x / chunkWidth) * windowSize) + origin),
+      chunk: order?.[position] ?? position
+    };
+  });
   const playhead = $derived(
     audio && windowSize
       ? ((position * audio.sampleRate - origin) / windowSize) * chunkWidth
@@ -334,29 +339,19 @@
             ((x / chunkWidth) * windowSize + origin) / audio.sampleRate;
           surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
         }}
-        onpointermove={(event) => {
-          if (!audio || !windowSize) return;
-
-          const x =
-            event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const position = Math.min(chunks - 1, Math.floor(x / chunkWidth));
-          hover = {
+        onpointermove={(event) =>
+          (hover = {
             x: event.clientX,
             y: event.clientY,
-            sample: Math.max(
-              0,
-              Math.floor((x / chunkWidth) * windowSize) + origin
-            ),
-            chunk: order?.[position] ?? position
-          };
-        }}
+            view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
+          })}
         onpointerleave={() => (hover = null)}
         class="absolute top-0 left-0 h-full cursor-pointer"
         style="width: {chunks * chunkWidth}px"
       ></button>
 
-      {#if hover && audio}
-        {@const seconds = hover.sample / audio.sampleRate}
+      {#if hover && hovered && audio}
+        {@const seconds = hovered.sample / audio.sampleRate}
         {@const flip = hover.x - 12 - tipWidth < 0}
         <div
           bind:offsetWidth={tipWidth}
@@ -365,7 +360,7 @@
             : '-translate-x-full'}"
           style="left: {flip ? hover.x + 12 : hover.x - 12}px; top: {hover.y}px"
         >
-          <p>Sample: {hover.sample.toLocaleString()}</p>
+          <p>Sample: {hovered.sample.toLocaleString()}</p>
           <p>
             Timestamp:
             {clock(seconds)}.{Math.floor((seconds % 1) * 1000)
@@ -373,7 +368,7 @@
               .padStart(3, "0")}
           </p>
           {#if describe}
-            <p>{describe(hover.chunk)}</p>
+            <p>{describe(hovered.chunk)}</p>
           {/if}
         </div>
       {/if}
