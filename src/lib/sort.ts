@@ -16,11 +16,12 @@ export const chunkScores = (
   audio: Audio,
   windowSize: number,
   target: Target,
-  measure: Measure = "Mean"
+  measure: Measure = "Mean",
+  origin = 0
 ) => {
   const { channels, sampleRate, length } = audio;
   const share = 1 / channels.length;
-  const count = Math.ceil(length / windowSize);
+  const count = Math.ceil((length - origin) / windowSize);
   const fftSize = 2 ** Math.ceil(Math.log2(windowSize));
   const scores = new Float64Array(count);
 
@@ -40,12 +41,13 @@ export const chunkScores = (
   }
 
   for (let chunk = 0; chunk < count; chunk++) {
-    const offset = chunk * windowSize;
+    const offset = origin + chunk * windowSize;
     const span = Math.min(windowSize, length - offset);
     re.fill(0);
 
     for (const channel of channels)
-      for (let i = 0; i < span; i++) re[i] += channel[offset + i] * share;
+      for (let i = Math.max(0, -offset); i < span; i++)
+        re[i] += channel[offset + i] * share;
 
     if (target === "Amplitude") {
       if (measure === "Peak") {
@@ -127,6 +129,34 @@ export const chunkScores = (
   return scores;
 };
 
+export const beatPhase = (audio: Audio, windowSize: number) => {
+  const { channels, length } = audio;
+  const hop = 128;
+  const frames = Math.floor(length / hop);
+  const level = new Float64Array(frames);
+
+  for (let frame = 0; frame < frames; frame++) {
+    let sum = 0;
+    for (const channel of channels)
+      for (let i = frame * hop; i < (frame + 1) * hop; i++)
+        sum += channel[i] * channel[i];
+    level[frame] = Math.sqrt(sum / (hop * channels.length));
+  }
+
+  const rises = new Float64Array(frames);
+  let strongest = 0;
+  for (let frame = 1; frame < frames; frame++) {
+    rises[frame] = Math.max(0, level[frame] - level[frame - 1]);
+    strongest = Math.max(strongest, rises[frame]);
+  }
+
+  const average = level.reduce((sum, value) => sum + value, 0) / frames;
+  if (!strongest || strongest < 0.5 * average) return 0;
+
+  const first = rises.findIndex((rise) => rise >= 0.3 * strongest);
+  return ((((first - 1) * hop) % windowSize) + windowSize) % windowSize;
+};
+
 export const orderScores = (scores: Float64Array, direction: Direction) =>
   Array.from(scores, (_, index) => index).sort((a, b) =>
     direction === "Descending" ? scores[b] - scores[a] : scores[a] - scores[b]
@@ -144,7 +174,8 @@ export const stitchChunks = (
   audio: Audio,
   windowSize: number,
   order: number[],
-  fade = Math.min(512, windowSize >> 3)
+  fade = Math.min(512, windowSize >> 3),
+  origin = 0
 ): Audio => {
   const { channels, sampleRate, length } = audio;
   const numberOfChannels = channels.length;
@@ -157,11 +188,11 @@ export const stitchChunks = (
   );
 
   order.forEach((chunk, position) => {
-    const source = chunk * windowSize;
+    const source = origin + chunk * windowSize;
     const span = Math.min(windowSize + blend, length - source);
     const start = position * windowSize;
 
-    for (let i = 0; i < span; i++) {
+    for (let i = Math.max(0, -source); i < span; i++) {
       const gain =
         i < blend
           ? Math.sin((Math.PI / 2) * (i / blend))

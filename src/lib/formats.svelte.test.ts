@@ -35,6 +35,7 @@ describe("audio formats in Chromium", () => {
     destroy = $effect.root(() => {
       sorter = new Sorter();
       sorter.mode = "Samples";
+      sorter.beatSlice = false;
       sorter.direction = "Descending";
     });
     flushSync();

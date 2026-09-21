@@ -22,6 +22,11 @@ export type Sorted = {
   blob: Blob;
   audio: Audio;
   order: number[];
+  total: number;
+  origin: number;
+  scores: Float64Array;
+  target: Target;
+  measure: Measure;
   windowSize: number;
   filename: string;
 };
@@ -47,6 +52,9 @@ export class Sorter {
   target = $state<Target>("Amplitude");
   measure = $state<Measure>("Mean");
   direction = $state<Direction>("Ascending");
+  dropSilence = $state(true);
+  beatSlice = $state(true);
+  offset = $state(0);
   sorted = $state.raw<Sorted | null>(null);
 
   #worker = $state.raw<Worker | null>(null);
@@ -58,7 +66,7 @@ export class Sorter {
 
     return {
       channels: Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-        buffer.getChannelData(index)
+        buffer.getChannelData(index).slice()
       ),
       sampleRate: buffer.sampleRate,
       length: buffer.length
@@ -84,7 +92,8 @@ export class Sorter {
         : `${this.samples}smp`,
       stubs[this.target],
       stubs[this.measure],
-      stubs[this.direction]
+      stubs[this.direction],
+      this.dropSilence ? "trim" : ""
     ]
       .join("-")
       .toLowerCase()
@@ -160,6 +169,9 @@ export class Sorter {
         target,
         measure,
         direction,
+        dropSilence,
+        beatSlice,
+        offset,
         filename
       } = this;
 
@@ -173,10 +185,24 @@ export class Sorter {
       const receive = ({ data }: MessageEvent<SortResponse>) => {
         if (data.id !== id) return;
 
-        const { blob, order, channels, sampleRate, length } = data;
+        const {
+          blob,
+          order,
+          total,
+          origin,
+          scores,
+          channels,
+          sampleRate,
+          length
+        } = data;
         this.sorted = {
           blob,
           order,
+          total,
+          origin,
+          scores,
+          target,
+          measure,
           windowSize,
           filename,
           audio: { channels, sampleRate, length }
@@ -190,7 +216,10 @@ export class Sorter {
         windowSize,
         target,
         measure,
-        direction
+        direction,
+        dropSilence,
+        beatSlice,
+        offset: Math.round(((offset || 0) * audio.sampleRate) / 1000)
       } satisfies SortRequest);
 
       return () => instance.removeEventListener("message", receive);

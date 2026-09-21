@@ -11,19 +11,29 @@
     file,
     audio = null,
     order = null,
+    total = null,
     windowSize = null,
+    origin = 0,
+    slicing = false,
+    describe = null,
     name = null,
     download = false
   }: {
     file: Blob;
     audio?: Audio | null;
     order?: number[] | null;
+    total?: number | null;
     windowSize?: number | null;
+    origin?: number;
+    slicing?: boolean;
+    describe?: ((chunk: number) => string) | null;
     name?: string | null;
     download?: boolean;
   } = $props();
 
   let visible = $state(8);
+  let hover = $state<{ x: number; y: number; view: number } | null>(null);
+  let tipWidth = $state(0);
 
   let container = $state<HTMLDivElement | null>(null);
   let strip = $state<HTMLDivElement | null>(null);
@@ -83,9 +93,9 @@
       0
     );
 
-    if (order) {
+    if (order && !slicing) {
       order.forEach((source, position) => {
-        const color = hue(source / order.length, lightness);
+        const color = hue(source / (total ?? order.length), lightness);
         gradient.addColorStop(position / order.length, color);
         gradient.addColorStop((position + 1) / order.length, color);
       });
@@ -109,9 +119,19 @@
 
   const chunkWidth = $derived(stripWidth / visible);
   const chunks = $derived(order && windowSize ? order.length : 0);
+  const hovered = $derived.by(() => {
+    if (!hover || !windowSize || !chunks) return null;
+
+    const x = hover.view + offset;
+    const position = Math.min(chunks - 1, Math.floor(x / chunkWidth));
+    return {
+      sample: Math.max(0, Math.floor((x / chunkWidth) * windowSize) + origin),
+      chunk: order?.[position] ?? position
+    };
+  });
   const playhead = $derived(
     audio && windowSize
-      ? ((position * audio.sampleRate) / windowSize) * chunkWidth
+      ? ((position * audio.sampleRate - origin) / windowSize) * chunkWidth
       : 0
   );
 
@@ -149,17 +169,17 @@
       const chunk = Math.floor(start / chunkWidth);
       if (chunk < 0 || chunk >= order.length) continue;
 
-      const from = Math.floor((start / chunkWidth) * windowSize);
-      const to = Math.floor(((start + 1) / chunkWidth) * windowSize);
+      const from = Math.floor((start / chunkWidth) * windowSize) + origin;
+      const to = Math.floor(((start + 1) / chunkWidth) * windowSize) + origin;
 
       let low = 0;
       let high = 0;
-      for (let i = from; i < to && i < data.length; i++) {
+      for (let i = Math.max(0, from); i < to && i < data.length; i++) {
         if (data[i] < low) low = data[i];
         if (data[i] > high) high = data[i];
       }
 
-      context.fillStyle = hue(order[chunk] / order.length, 55);
+      context.fillStyle = hue(order[chunk] / (total ?? order.length), 55);
       context.fillRect(
         x,
         middle - high * reach,
@@ -299,6 +319,74 @@
   });
 </script>
 
+{#snippet chunkStrip()}
+  {#if chunks && !error}
+    <div
+      bind:this={strip}
+      bind:clientWidth={stripWidth}
+      onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
+      class="relative h-32 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+    >
+      <button
+        type="button"
+        aria-label="Seek"
+        onclick={(event) => {
+          if (!duration || !audio || !windowSize) return;
+
+          const x =
+            event.clientX - event.currentTarget.getBoundingClientRect().left;
+          const seconds =
+            ((x / chunkWidth) * windowSize + origin) / audio.sampleRate;
+          surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
+        }}
+        onpointermove={(event) =>
+          (hover = {
+            x: event.clientX,
+            y: event.clientY,
+            view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
+          })}
+        onpointerleave={() => (hover = null)}
+        class="absolute top-0 left-0 h-full cursor-pointer"
+        style="width: {chunks * chunkWidth}px"
+      ></button>
+
+      {#if hover && hovered && audio}
+        {@const seconds = hovered.sample / audio.sampleRate}
+        {@const flip = hover.x - 12 - tipWidth < 0}
+        <div
+          bind:offsetWidth={tipWidth}
+          class="pointer-events-none fixed z-20 -translate-y-1/2 rounded-lg border border-neutral-700/60 bg-neutral-950/60 px-2 py-1.5 font-mono text-xs whitespace-nowrap text-neutral-300 {flip
+            ? ''
+            : '-translate-x-full'}"
+          style="left: {flip ? hover.x + 12 : hover.x - 12}px; top: {hover.y}px"
+        >
+          <p>Sample: {hovered.sample.toLocaleString()}</p>
+          <p>
+            Timestamp:
+            {clock(seconds)}.{Math.floor((seconds % 1) * 1000)
+              .toString()
+              .padStart(3, "0")}
+          </p>
+          {#if describe}
+            <p>{describe(hovered.chunk)}</p>
+          {/if}
+        </div>
+      {/if}
+
+      <canvas
+        bind:this={canvas}
+        class="pointer-events-none absolute top-0 h-full"
+        style="left: {offset}px; width: {stripWidth}px"
+      ></canvas>
+
+      <div
+        class="pointer-events-none absolute top-0 h-full w-px bg-neutral-50"
+        style="left: {playhead}px"
+      ></div>
+    </div>
+  {/if}
+{/snippet}
+
 <div class="flex w-full max-w-xl flex-col gap-4">
   {#if name}
     <p
@@ -317,39 +405,8 @@
     </p>
   {/if}
 
-  {#if chunks && !error}
-    <div
-      bind:this={strip}
-      bind:clientWidth={stripWidth}
-      onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
-      class="relative h-32 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
-    >
-      <button
-        type="button"
-        aria-label="Seek"
-        onclick={(event) => {
-          if (!duration || !audio || !windowSize) return;
-
-          const x =
-            event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const seconds = ((x / chunkWidth) * windowSize) / audio.sampleRate;
-          surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
-        }}
-        class="absolute top-0 left-0 h-full cursor-pointer"
-        style="width: {chunks * chunkWidth}px"
-      ></button>
-
-      <canvas
-        bind:this={canvas}
-        class="pointer-events-none absolute top-0 h-full"
-        style="left: {offset}px; width: {stripWidth}px"
-      ></canvas>
-
-      <div
-        class="pointer-events-none absolute top-0 h-full w-px bg-neutral-50"
-        style="left: {playhead}px"
-      ></div>
-    </div>
+  {#if !slicing}
+    {@render chunkStrip()}
   {/if}
 
   <div class="relative" bind:clientWidth={width}>
@@ -366,6 +423,10 @@
       </div>
     {/if}
   </div>
+
+  {#if slicing}
+    {@render chunkStrip()}
+  {/if}
 
   {#if error}
     <p class="text-center text-sm text-red-400">{error}</p>
