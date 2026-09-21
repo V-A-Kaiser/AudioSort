@@ -143,25 +143,18 @@ export const beatPhase = (audio: Audio, windowSize: number) => {
     level[frame] = Math.sqrt(sum / (hop * channels.length));
   }
 
-  let best = 0;
+  const rises = new Float64Array(frames);
   let strongest = 0;
-  for (let phase = 0; phase < windowSize; phase += hop) {
-    let sum = 0;
-    for (let at = phase; at < length; at += windowSize) {
-      const frame = Math.floor(at / hop);
-      if (frame > 0 && frame < frames)
-        sum += Math.max(0, level[frame] - level[frame - 1]);
-    }
-    if (sum > strongest) {
-      strongest = sum;
-      best = phase;
-    }
+  for (let frame = 1; frame < frames; frame++) {
+    rises[frame] = Math.max(0, level[frame] - level[frame - 1]);
+    strongest = Math.max(strongest, rises[frame]);
   }
 
   const average = level.reduce((sum, value) => sum + value, 0) / frames;
-  const beats = Math.ceil(length / windowSize);
-  if (!strongest || strongest / beats < 0.1 * average) return 0;
-  return (((best - hop) % windowSize) + windowSize) % windowSize;
+  if (!strongest || strongest < 0.5 * average) return 0;
+
+  const first = rises.findIndex((rise) => rise >= 0.3 * strongest);
+  return ((((first - 1) * hop) % windowSize) + windowSize) % windowSize;
 };
 
 export const orderScores = (scores: Float64Array, direction: Direction) =>

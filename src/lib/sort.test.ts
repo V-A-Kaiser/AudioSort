@@ -423,6 +423,28 @@ describe("beatPhase", () => {
     });
   });
 
+  it("anchors to the first kick when the tempo drifts from the grid", () => {
+    const spacing = Math.round(beat * 1.02);
+    const drifting: Audio = (() => {
+      const data = new Float32Array(lead + 16 * spacing);
+      for (let kick = 0; kick < 16; kick++) {
+        let phase = 0;
+        for (let index = 0; index < spacing; index++) {
+          const time = index / sampleRate;
+          const frequency = 50 + 100 * Math.exp(-time / 0.03);
+          phase += (2 * Math.PI * frequency) / sampleRate;
+          data[lead + kick * spacing + index] =
+            Math.exp(-time / 0.08) * Math.sin(phase);
+        }
+      }
+      return { channels: [data], sampleRate, length: data.length };
+    })();
+
+    const early = (((lead - beatPhase(drifting, beat)) % beat) + beat) % beat;
+    expect(early).toBeGreaterThanOrEqual(0);
+    expect(early).toBeLessThan(3 * 128);
+  });
+
   it("leaves the grid alone for audio without transients", () => {
     const steady = mono(4, 1024, (_, index) => sine(440, index));
 
