@@ -34,7 +34,7 @@ describe("audio formats in Chromium", () => {
     let sorter!: Sorter;
     destroy = $effect.root(() => {
       sorter = new Sorter();
-      sorter.mode = "Samples";
+      sorter.mode = "Time";
       sorter.beatSlice = false;
       sorter.direction = "Descending";
     });
@@ -56,7 +56,7 @@ describe("audio formats in Chromium", () => {
     expect(decoded.duration).toBeGreaterThan(0.95);
     expect(decoded.duration).toBeLessThan(1.1);
 
-    sorter.windowSize = Math.round(decoded.sampleRate / 4);
+    sorter.windowTime = 250;
     await vi.waitFor(() =>
       expect(sorter.sorted?.windowSize).toBe(sorter.samples)
     );
