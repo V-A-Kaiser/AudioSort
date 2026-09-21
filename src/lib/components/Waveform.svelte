@@ -11,6 +11,7 @@
     file,
     audio = null,
     order = null,
+    total = null,
     windowSize = null,
     name = null,
     download = false
@@ -18,6 +19,7 @@
     file: Blob;
     audio?: Audio | null;
     order?: number[] | null;
+    total?: number | null;
     windowSize?: number | null;
     name?: string | null;
     download?: boolean;
@@ -85,7 +87,7 @@
 
     if (order) {
       order.forEach((source, position) => {
-        const color = hue(source / order.length, lightness);
+        const color = hue(source / (total ?? order.length), lightness);
         gradient.addColorStop(position / order.length, color);
         gradient.addColorStop((position + 1) / order.length, color);
       });
@@ -159,7 +161,7 @@
         if (data[i] > high) high = data[i];
       }
 
-      context.fillStyle = hue(order[chunk] / order.length, 55);
+      context.fillStyle = hue(order[chunk] / (total ?? order.length), 55);
       context.fillRect(
         x,
         middle - high * reach,

@@ -16,6 +16,7 @@ type Sort = {
   target: Target;
   measure: Measure;
   direction: Direction;
+  dropSilence: boolean;
 };
 
 export type SortRequest = ({ type: "load" } & Audio) | Sort;
@@ -42,14 +43,24 @@ const run = (data: Sort) => {
     return;
   }
 
-  const key = `${data.windowSize}|${data.target}|${data.measure}`;
-  const cached =
-    scores.get(key) ??
-    chunkScores(source, data.windowSize, data.target, data.measure);
-  scores.set(key, cached);
+  const audio = source;
+  const score = (target: Target, measure: Measure) => {
+    const key = `${data.windowSize}|${target}|${measure}`;
+    const cached =
+      scores.get(key) ?? chunkScores(audio, data.windowSize, target, measure);
+    scores.set(key, cached);
+    return cached;
+  };
 
-  const order = orderScores(cached, data.direction);
-  const stitched = stitchChunks(source, data.windowSize, order);
+  const sorted = orderScores(score(data.target, data.measure), data.direction);
+  const order = (() => {
+    if (!data.dropSilence) return sorted;
+
+    const loudness = score("Amplitude", "RMS");
+    const audible = sorted.filter((chunk) => loudness[chunk] >= 0.001);
+    return audible.length ? audible : sorted;
+  })();
+  const stitched = stitchChunks(audio, data.windowSize, order);
   const channels = stitched.channels as Float32Array<ArrayBuffer>[];
 
   worker.postMessage(

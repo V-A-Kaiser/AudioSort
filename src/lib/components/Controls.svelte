@@ -27,7 +27,7 @@
 
 {#snippet info(
   text: string,
-  align: "start" | "end" | "split",
+  align: "start" | "middle" | "split",
   points: readonly [string, string][] = []
 )}
   <span class="group relative inline-flex items-center">
@@ -48,8 +48,8 @@
       class="tooltip bottom-full mb-2 font-normal group-focus-within:opacity-100 group-hover:opacity-100 sm:w-64 {align ===
       'start'
         ? 'left-0'
-        : align === 'end'
-          ? 'right-0'
+        : align === 'middle'
+          ? 'left-1/2 -translate-x-1/2'
           : 'left-0 xs:right-0 xs:left-auto'}"
     >
       {text}
@@ -125,7 +125,7 @@
             Division
             {@render info(
               "How much musical time each chunk covers, assuming a 4/4 time signature.",
-              "end"
+              "middle"
             )}
           </span>
         </label>
@@ -145,8 +145,28 @@
 
   <div class="flex flex-col gap-2">
     <span class="flex items-center gap-1.5 text-sm text-neutral-400">
+      <label for="remove-silence" class="cursor-pointer">Remove Silence</label>
+      {@render info("Remove silent chunks from the sorted array.", "split")}
+    </span>
+    <label class="w-fit cursor-pointer">
+      <input
+        id="remove-silence"
+        type="checkbox"
+        role="switch"
+        bind:checked={sorter.dropSilence}
+        class="peer sr-only"
+      />
+      <span
+        aria-hidden="true"
+        class="relative block h-9.5 w-17 rounded-lg border border-neutral-700 transition-colors duration-200 ease-out peer-checked:border-neutral-100 peer-checked:bg-neutral-100 peer-focus-visible:border-neutral-400 after:absolute after:top-1 after:left-1 after:size-7 after:rounded-md after:bg-neutral-500 after:transition-transform after:duration-200 after:ease-out peer-checked:after:translate-x-7.5 peer-checked:after:bg-neutral-900"
+      ></span>
+    </label>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <span class="flex items-center gap-1.5 text-sm text-neutral-400">
       Target
-      {@render info("How each chunk is sorted.", "split", [
+      {@render info("How each chunk is sorted.", "start", [
         ["Amplitude", "Determines loudness from the chunk's sample values."],
         [
           "Frequency",
@@ -162,7 +182,7 @@
       Measure
       {@render info(
         "How a chunk is reduced to one number for comparison.",
-        "start",
+        "split",
         [
           [
             "Mean",
@@ -185,7 +205,7 @@
   <div class="flex flex-col gap-2">
     <span class="flex items-center gap-1.5 text-sm text-neutral-400">
       Direction
-      {@render info("Which end the sort starts from.", "split", [
+      {@render info("Which end the sort starts from.", "start", [
         [
           "Ascending",
           "Lowest scores first. Quietest amplitude or darkest frequency."

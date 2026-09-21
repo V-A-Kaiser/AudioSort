@@ -22,6 +22,7 @@ export type Sorted = {
   blob: Blob;
   audio: Audio;
   order: number[];
+  total: number;
   windowSize: number;
   filename: string;
 };
@@ -47,6 +48,7 @@ export class Sorter {
   target = $state<Target>("Amplitude");
   measure = $state<Measure>("Mean");
   direction = $state<Direction>("Ascending");
+  dropSilence = $state(false);
   sorted = $state.raw<Sorted | null>(null);
 
   #worker = $state.raw<Worker | null>(null);
@@ -84,7 +86,8 @@ export class Sorter {
         : `${this.samples}smp`,
       stubs[this.target],
       stubs[this.measure],
-      stubs[this.direction]
+      stubs[this.direction],
+      this.dropSilence ? "trim" : ""
     ]
       .join("-")
       .toLowerCase()
@@ -160,6 +163,7 @@ export class Sorter {
         target,
         measure,
         direction,
+        dropSilence,
         filename
       } = this;
 
@@ -177,6 +181,7 @@ export class Sorter {
         this.sorted = {
           blob,
           order,
+          total: Math.ceil(audio.length / windowSize),
           windowSize,
           filename,
           audio: { channels, sampleRate, length }
@@ -190,7 +195,8 @@ export class Sorter {
         windowSize,
         target,
         measure,
-        direction
+        direction,
+        dropSilence
       } satisfies SortRequest);
 
       return () => instance.removeEventListener("message", receive);

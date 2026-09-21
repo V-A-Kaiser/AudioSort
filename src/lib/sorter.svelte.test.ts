@@ -94,4 +94,22 @@ describe("Sorter", () => {
     expect(sorter.notice).not.toBe(null);
     expect(sorter.file).toBe(null);
   });
+
+  it("removes silent chunks and marks the filename", async () => {
+    const sorter = create();
+    sorter.dropSilence = true;
+    sorter.take(wavFile(segments([0.8, 0, 0.6])));
+
+    await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
+      timeout: 5000
+    });
+    sorter.windowSize = Math.round(sorter.decoded!.sampleRate / 4);
+
+    await vi.waitFor(() =>
+      expect(sorter.sorted?.windowSize).toBe(sorter.samples)
+    );
+    expect(sorter.sorted!.order).toEqual([2, 0]);
+    expect(sorter.sorted!.total).toBe(3);
+    expect(sorter.sorted!.filename).toMatch(/-trim\.wav$/);
+  });
 });

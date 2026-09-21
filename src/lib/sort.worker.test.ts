@@ -14,15 +14,30 @@ vi.mock("./sort", { spy: true });
 
 const sort = (
   id: number,
-  direction: "Ascending" | "Descending" = "Ascending"
+  direction: "Ascending" | "Descending" = "Ascending",
+  dropSilence = false
 ) => ({
   type: "sort" as const,
   id,
   windowSize: 64,
   target: "Amplitude" as const,
   measure: "Mean" as const,
-  direction
+  direction,
+  dropSilence
 });
+
+const levels = (...values: number[]) => {
+  const data = new Float32Array(values.length * 64);
+  values.forEach((level, chunk) =>
+    data.fill(level, chunk * 64, (chunk + 1) * 64)
+  );
+  return {
+    type: "load" as const,
+    channels: [data],
+    sampleRate: 8000,
+    length: data.length
+  };
+};
 
 const harness = async () => {
   const posted: {
@@ -130,5 +145,33 @@ describe("sort.worker", () => {
     send(sort(2));
 
     expect(scores).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops chunks quieter than -60 dBFS when asked", async () => {
+    const { posted, send } = await harness();
+
+    send(levels(0.8, 0, 0.6, 0.0005));
+    send(sort(1, "Ascending", true));
+
+    expect(posted[0].message.order).toEqual([2, 0]);
+    expect(posted[0].message.length).toBe(2 * 64 + 8);
+  });
+
+  it("keeps silent chunks unless asked", async () => {
+    const { posted, send } = await harness();
+
+    send(levels(0.8, 0, 0.6, 0.0005));
+    send(sort(1));
+
+    expect(posted[0].message.order).toEqual([1, 3, 2, 0]);
+  });
+
+  it("keeps every chunk when the whole file is silent", async () => {
+    const { posted, send } = await harness();
+
+    send(levels(0, 0, 0));
+    send(sort(1, "Ascending", true));
+
+    expect(posted[0].message.order).toHaveLength(3);
   });
 });

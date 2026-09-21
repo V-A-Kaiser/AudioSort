@@ -50,6 +50,7 @@
       file={sorter.sorted.blob}
       audio={sorter.sorted.audio}
       order={sorter.sorted.order}
+      total={sorter.sorted.total}
       windowSize={sorter.sorted.windowSize}
       name={sorter.sorted.filename}
       download

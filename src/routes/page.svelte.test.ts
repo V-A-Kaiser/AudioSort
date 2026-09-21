@@ -14,6 +14,9 @@ describe("page", () => {
     await expect
       .element(screen.getByRole("radiogroup", { name: "Target" }))
       .toBeInTheDocument();
+    await expect
+      .element(screen.getByRole("switch", { name: "Remove Silence" }))
+      .toBeInTheDocument();
   });
 
   it("sorts a chosen file into a downloadable result", async () => {
