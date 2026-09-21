@@ -177,7 +177,7 @@ const onsets = (audio: Audio, hop: number, log = false) => {
   }
 
   const average = level.reduce((sum, value) => sum + value, 0) / frames;
-  return { rises, strongest, average };
+  return { level, rises, strongest, average };
 };
 
 export const beatPhase = (audio: Audio, windowSize: number) => {
@@ -230,25 +230,41 @@ export const transients = (
   offset = 0
 ) => {
   const hop = 128;
-  const { rises, strongest } = onsets(audio, hop);
+  const reach = Math.round((0.02 * audio.sampleRate) / hop);
+  const { level } = onsets(audio, hop);
+  const lows = level.map((_, frame) => {
+    let low = frame;
+    for (let back = 1; back <= reach && frame - back >= 0; back++)
+      if (level[frame - back] < level[low]) low = frame - back;
+    return low;
+  });
+  const rises = level.map((value, frame) => value - level[lows[frame]]);
+  const strongest = rises.reduce((most, rise) => Math.max(most, rise), 0);
   const threshold = (1 - sensitivity) * strongest;
-  const edges = [0];
+  const candidates: { rise: number; at: number }[] = [];
 
   rises.forEach((rise, frame) => {
-    const at = (frame - 1) * hop + offset;
     if (
-      rise > 0 &&
-      rise >= threshold &&
-      rise >= rises[frame - 1] &&
-      rise > (rises[frame + 1] ?? 0) &&
-      at - edges[edges.length - 1] >= minimum &&
-      audio.length - at >= minimum
+      !(rise > 0) ||
+      rise < threshold ||
+      rise < rises[frame - 1] ||
+      rise <= (rises[frame + 1] ?? 0)
     )
-      edges.push(at);
+      return;
+
+    const low = lows[frame];
+    let start = low;
+    while (level[start] - level[low] < 0.2 * rise) start++;
+
+    const at = Math.max(low, start - 1) * hop + offset;
+    if (at > 0 && audio.length - at >= minimum) candidates.push({ rise, at });
   });
 
-  edges.push(audio.length);
-  return edges;
+  const chosen: number[] = [];
+  for (const { at } of candidates.sort((a, b) => b.rise - a.rise))
+    if (chosen.every((edge) => Math.abs(edge - at) >= minimum)) chosen.push(at);
+
+  return [0, ...chosen.sort((a, b) => a - b), audio.length];
 };
 
 export const orderScores = (scores: Float64Array, direction: Direction) =>
