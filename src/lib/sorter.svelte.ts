@@ -63,7 +63,7 @@ export class Sorter {
 
     return {
       channels: Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-        buffer.getChannelData(index)
+        buffer.getChannelData(index).slice()
       ),
       sampleRate: buffer.sampleRate,
       length: buffer.length
