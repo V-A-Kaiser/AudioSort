@@ -1,8 +1,23 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import Info from "@lucide/svelte/icons/info";
   import { version } from "../../../package.json";
 
   let about = $state<HTMLDialogElement | null>(null);
+  let closing = $state(false);
+
+  const dismiss = async () => {
+    const dialog = about;
+    if (!dialog?.open || closing) return;
+
+    closing = true;
+    await tick();
+    await Promise.allSettled(
+      dialog.getAnimations({ subtree: true }).map(({ finished }) => finished)
+    );
+    dialog.close();
+    closing = false;
+  };
 </script>
 
 <footer
@@ -44,10 +59,15 @@
 
 <dialog
   bind:this={about}
+  data-closing={closing || undefined}
   onclick={(event) => {
-    if (event.target === about) about?.close();
+    if (event.target === about) void dismiss();
   }}
-  class="m-auto w-[min(28rem,calc(100vw-2rem))] scale-95 rounded-xl border border-neutral-700 bg-neutral-950 p-0 text-neutral-300 opacity-0 transition-all transition-discrete duration-200 ease-out backdrop:bg-neutral-950/0 backdrop:transition-all backdrop:transition-discrete backdrop:duration-200 open:scale-100 open:opacity-100 open:backdrop:bg-neutral-950/70 motion-reduce:transition-none motion-reduce:backdrop:transition-none starting:open:scale-95 starting:open:opacity-0 starting:open:backdrop:bg-neutral-950/0"
+  oncancel={(event) => {
+    event.preventDefault();
+    void dismiss();
+  }}
+  class="m-auto w-[min(28rem,calc(100vw-2rem))] scale-95 rounded-xl border border-neutral-700 bg-neutral-950 p-0 text-neutral-300 opacity-0 transition-all transition-discrete duration-200 ease-out backdrop:bg-neutral-950/0 backdrop:transition-all backdrop:transition-discrete backdrop:duration-200 open:scale-100 open:opacity-100 open:backdrop:bg-neutral-950/70 open:data-closing:scale-95 open:data-closing:opacity-0 open:data-closing:backdrop:bg-neutral-950/0 motion-reduce:transition-none motion-reduce:backdrop:transition-none starting:open:scale-95 starting:open:opacity-0 starting:open:backdrop:bg-neutral-950/0"
 >
   <div class="flex flex-col gap-3 p-5 text-sm">
     <div class="flex flex-col">
