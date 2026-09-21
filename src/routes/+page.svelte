@@ -54,8 +54,7 @@
         audio={sorter.source}
         name={sorter.file.name}
         order={slices}
-        windowSize={sorter.sorted?.windowSize}
-        origin={sorter.sorted?.origin}
+        spans={sorter.sorted?.edges}
         {describe}
         slicing
       />
@@ -73,7 +72,7 @@
       order={sorter.sorted.order}
       total={sorter.sorted.total}
       {describe}
-      windowSize={sorter.sorted.windowSize}
+      spans={sorter.sorted.spans}
       name={sorter.sorted.filename}
       download
     />

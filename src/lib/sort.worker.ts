@@ -1,9 +1,11 @@
 import {
   beatPhase,
   chunkScores,
+  grid,
   orderScores,
   stitchChunks,
   toWav,
+  transients,
   type Audio,
   type Direction,
   type Measure,
@@ -20,6 +22,7 @@ type Sort = {
   dropSilence: boolean;
   beatSlice: boolean;
   offset: number;
+  transient: { sensitivity: number; minimum: number } | null;
 };
 
 export type SortRequest = ({ type: "load" } & Audio) | Sort;
@@ -28,7 +31,8 @@ export type SortResponse = Audio & {
   id: number;
   order: number[];
   total: number;
-  origin: number;
+  edges: number[];
+  spans: number[];
   scores: Float64Array;
   blob: Blob;
   channels: Float32Array<ArrayBuffer>[];
@@ -51,9 +55,11 @@ const run = (data: Sort) => {
   }
 
   const audio = source;
-  const { windowSize } = data;
+  const { windowSize, transient } = data;
 
   const origin = (() => {
+    if (transient) return 0;
+
     const phase = data.beatSlice
       ? (phases.get(windowSize) ?? beatPhase(audio, windowSize))
       : 0;
@@ -64,11 +70,18 @@ const run = (data: Sort) => {
     return start ? start - windowSize : 0;
   })();
 
+  const layout = transient
+    ? transients(audio, transient.sensitivity, transient.minimum, data.offset)
+    : windowSize;
+  const edges = grid(layout, audio.length, origin);
+  const shape = transient
+    ? `${transient.sensitivity}|${transient.minimum}|${data.offset}`
+    : `${windowSize}|${origin}`;
+
   const score = (target: Target, measure: Measure) => {
-    const key = `${windowSize}|${origin}|${target}|${measure}`;
+    const key = `${shape}|${target}|${measure}`;
     const cached =
-      scores.get(key) ??
-      chunkScores(audio, windowSize, target, measure, origin);
+      scores.get(key) ?? chunkScores(audio, layout, target, measure, origin);
     scores.set(key, cached);
     return cached;
   };
@@ -82,7 +95,10 @@ const run = (data: Sort) => {
     const audible = sorted.filter((chunk) => loudness[chunk] >= 0.001);
     return audible.length ? audible : sorted;
   })();
-  const stitched = stitchChunks(audio, windowSize, order, undefined, origin);
+  const stitched = stitchChunks(audio, layout, order, undefined, origin);
+  const spans = [0];
+  for (const chunk of order)
+    spans.push(spans[spans.length - 1] + edges[chunk + 1] - edges[chunk]);
   const channels = stitched.channels as Float32Array<ArrayBuffer>[];
 
   worker.postMessage(
@@ -90,7 +106,8 @@ const run = (data: Sort) => {
       id: data.id,
       order,
       total: ranked.length,
-      origin,
+      edges,
+      spans,
       scores: ranked,
       blob: toWav(stitched),
       ...stitched,

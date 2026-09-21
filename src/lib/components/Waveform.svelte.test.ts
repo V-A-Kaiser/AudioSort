@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-svelte";
-import { toWav } from "$lib/sort";
+import { grid, toWav } from "$lib/sort";
 import { segments } from "$lib/testing/audio";
 import Waveform from "./Waveform.svelte";
 import "../../routes/layout.css";
@@ -38,7 +38,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: [0, 3, 2, 1],
-      windowSize: 2000
+      spans: grid(2000, audio.length)
     });
     await expect
       .element(sorted.getByRole("button", { name: "Seek" }))
@@ -66,7 +66,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: [0, 1, 2, 3],
-      windowSize: 2000
+      spans: grid(2000, audio.length)
     });
     const place = (container: HTMLElement) => {
       const seek = container.querySelector("button[aria-label=Seek]")!;
@@ -86,8 +86,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: [0, 1, 2, 3, 4],
-      windowSize: 2000,
-      origin: -1000,
+      spans: grid(2000, audio.length, -1000),
       slicing: true
     });
     await expect
@@ -101,7 +100,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: [0, 3, 2, 1],
-      windowSize: 2000,
+      spans: grid(2000, audio.length),
       describe: (chunk: number) => `score ${chunk}`
     });
     const seek = screen.getByRole("button", { name: "Seek" });
@@ -129,7 +128,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: [0, 3, 2, 1],
-      windowSize: 2000,
+      spans: grid(2000, audio.length),
       describe: (chunk: number) => `score ${chunk}`
     });
     const seek = screen.getByRole("button", { name: "Seek" });
@@ -150,7 +149,7 @@ describe("Waveform", () => {
       file,
       audio,
       order: Array.from({ length: 16 }, (_, index) => index),
-      windowSize: 500,
+      spans: grid(500, audio.length),
       describe: (chunk: number) => `score ${chunk}`
     });
     const seek = screen.getByRole("button", { name: "Seek" });

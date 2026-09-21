@@ -5,7 +5,9 @@ import {
   chunkScores,
   orderScores,
   stitchChunks,
+  tempo,
   toWav,
+  transients,
   type Audio
 } from "./sort";
 
@@ -449,5 +451,118 @@ describe("beatPhase", () => {
     const steady = mono(4, 1024, (_, index) => sine(440, index));
 
     expect(beatPhase(steady, 1024)).toBe(0);
+  });
+});
+
+describe("uneven chunks", () => {
+  const edges = [0, 64, 192, 256];
+  const levels = [0.8, 0.2, 0.6];
+  const audio: Audio = (() => {
+    const data = new Float32Array(256);
+    levels.forEach((level, chunk) =>
+      data.fill(level, edges[chunk], edges[chunk + 1])
+    );
+    return { channels: [data], sampleRate: 8000, length: data.length };
+  })();
+
+  it("scores each chunk over its own length", () => {
+    expect(
+      Array.from(chunkScores(audio, edges, "Amplitude"), (score) =>
+        Number(score.toFixed(3))
+      )
+    ).toEqual(levels);
+  });
+
+  it("stitches chunks back to back at their own lengths", () => {
+    const stitched = stitchChunks(audio, edges, [2, 1], 0);
+
+    expect(stitched.length).toBe(64 + 128);
+    expect(stitched.channels[0][63]).toBeCloseTo(0.6, 5);
+    expect(stitched.channels[0][64]).toBeCloseTo(0.2, 5);
+    expect(stitched.channels[0][191]).toBeCloseTo(0.2, 5);
+  });
+});
+
+describe("transients", () => {
+  const hits = [3000, 9000, 20000, 26000];
+  const track: Audio = (() => {
+    const data = new Float32Array(32000);
+    [1, 0.9, 1, 0.3].forEach((level, hit) => {
+      for (let index = 0; index < 4000; index++)
+        data[hits[hit] + index] =
+          level * Math.exp(-index / 400) * Math.sin(index / 3);
+    });
+    return { channels: [data], sampleRate: 8000, length: data.length };
+  })();
+
+  it("slices just before each transient", () => {
+    const edges = transients(track, 0.9, 256);
+
+    expect(edges[0]).toBe(0);
+    expect(edges[edges.length - 1]).toBe(track.length);
+    expect(edges).toHaveLength(hits.length + 2);
+    hits.forEach((hit, index) => {
+      expect(edges[index + 1]).toBeGreaterThan(hit - 3 * 128);
+      expect(edges[index + 1]).toBeLessThanOrEqual(hit);
+    });
+  });
+
+  it("keeps only the strongest transients at a lower sensitivity", () => {
+    expect(transients(track, 0.5, 256)).toHaveLength(hits.length + 1);
+  });
+
+  it("shifts every slice by the offset", () => {
+    const plain = transients(track, 0.9, 256);
+    const shifted = transients(track, 0.9, 256, -200);
+
+    expect(shifted.slice(1, -1)).toEqual(
+      plain.slice(1, -1).map((edge) => edge - 200)
+    );
+  });
+
+  it("never makes a chunk shorter than the minimum", () => {
+    const edges = transients(track, 0.9, 7000);
+
+    expect(edges).toHaveLength(4);
+    edges
+      .slice(1)
+      .forEach((edge, index) =>
+        expect(edge - edges[index]).toBeGreaterThanOrEqual(7000)
+      );
+  });
+});
+
+describe("tempo", () => {
+  const kicks = (bpm: number, seconds = 30, sampleRate = 44100): Audio => {
+    const data = new Float32Array(seconds * sampleRate);
+    const beat = (60 / bpm) * sampleRate;
+    for (let start = 0; start < data.length; start += beat) {
+      let phase = 0;
+      for (let index = 0; index < 0.2 * sampleRate; index++) {
+        const time = index / sampleRate;
+        phase +=
+          (2 * Math.PI * (50 + 100 * Math.exp(-time / 0.03))) / sampleRate;
+        const at = Math.round(start) + index;
+        if (at < data.length)
+          data[at] = Math.exp(-time / 0.08) * Math.sin(phase);
+      }
+    }
+    return { channels: [data], sampleRate, length: data.length };
+  };
+
+  it.each([90, 110, 122.5, 140, 167])("detects %d BPM", (bpm) => {
+    expect(tempo(kicks(bpm))).toBeCloseTo(bpm, 0);
+  });
+
+  it("detects the tempo at other sample rates", () => {
+    expect(tempo(kicks(128, 30, 48000))).toBeCloseTo(128, 0);
+  });
+
+  it("finds no tempo in a steady tone", () => {
+    expect(tempo(mono(64, 1024, (_, index) => sine(440, index)))).toBe(null);
+  });
+
+  it("finds no tempo in audio too short to hold a beat", () => {
+    expect(tempo(mono(1, 1024, () => 0.5))).toBe(null);
   });
 });
