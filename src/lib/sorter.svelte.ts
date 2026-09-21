@@ -122,7 +122,8 @@ export class Sorter {
         } catch {
           if (stale) return;
           this.file = null;
-          this.notice = "[TODO] Could not decode this audio.";
+          this.notice =
+            "Could not decode this file. It is either not an audio file, or the format is not supported by this browser.";
         } finally {
           void context.close();
         }
