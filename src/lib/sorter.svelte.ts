@@ -156,7 +156,7 @@ export class Sorter {
             sampleRate: buffer.sampleRate,
             length: buffer.length
           });
-          if (detected) this.bpm = Math.round(detected * 100) / 100;
+          if (detected) this.bpm = Math.round(detected);
         } catch {
           if (stale) return;
           this.file = null;
