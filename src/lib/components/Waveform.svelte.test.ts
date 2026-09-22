@@ -176,7 +176,7 @@ describe("Waveform", () => {
       spans: grid(2000, audio.length)
     });
     const select = screen.getByRole("button", { name: "Select chunks" });
-    const save = screen.getByRole("button", { name: "Download selection" });
+    const save = screen.getByRole("button", { name: "Clip selection" });
     await expect.element(save).toBeDisabled();
 
     const box = select.element().getBoundingClientRect();

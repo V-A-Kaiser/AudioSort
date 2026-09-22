@@ -652,75 +652,99 @@
     </div>
 
     <div class="relative flex items-center gap-3">
-      <button
-        type="button"
-        aria-label={playing ? "Pause" : "Play"}
-        class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40"
-        disabled={!duration}
-        onclick={() => {
-          if (!playing) {
-            void surfer?.play();
-            return;
-          }
-
-          ramp(1, 0);
-          setTimeout(() => surfer?.pause(), 14);
-        }}
-      >
-        {#if playing}
-          <Pause size={14} fill="currentColor" />
-        {:else}
-          <Play size={14} fill="currentColor" />
-        {/if}
-      </button>
-
-      {#if chunks}
+      <span class="group relative flex">
         <button
           type="button"
-          aria-label="Download selection"
-          class="{button} ml-auto cursor-pointer disabled:cursor-default disabled:opacity-40"
-          disabled={!picked}
+          aria-label={playing ? "Pause" : "Play"}
+          class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40"
+          disabled={!duration}
           onclick={() => {
-            const input = source ?? audio;
-            const bounds = edges ?? spans;
-            if (!picked || !input || !bounds || !order || !spans) return;
+            if (!playing) {
+              void surfer?.play();
+              return;
+            }
 
-            const length = spans[picked.to + 1] - spans[picked.from];
-            const stitched = stitchChunks(
-              input,
-              bounds,
-              order.slice(picked.from, picked.to + 1)
-            );
-            const fade = Math.min(length, Math.round(input.sampleRate * 0.005));
-            const channels = stitched.channels.map((channel) => {
-              const data = channel.slice(0, length);
-              for (let i = 0; i < fade; i++) data[length - 1 - i] *= i / fade;
-              return data;
-            });
-
-            const url = URL.createObjectURL(
-              toWav({ channels, sampleRate: input.sampleRate, length })
-            );
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${(name ?? "audio").replace(/\.[^.]+$/, "")}-chunks-${picked.from + 1}-${picked.to + 1}.wav`;
-            link.click();
-            setTimeout(() => URL.revokeObjectURL(url));
+            ramp(1, 0);
+            setTimeout(() => surfer?.pause(), 14);
           }}
         >
-          <Scissors size={14} />
+          {#if playing}
+            <Pause size={14} fill="currentColor" />
+          {:else}
+            <Play size={14} fill="currentColor" />
+          {/if}
         </button>
+        <span
+          aria-hidden="true"
+          class="tooltip bottom-full left-0 mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+        >
+          {playing ? "Pause" : "Play"}
+        </span>
+      </span>
+
+      {#if chunks}
+        <span class="group relative ml-auto flex">
+          <button
+            type="button"
+            aria-label="Clip selection"
+            class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40 disabled:hover:bg-neutral-900 disabled:hover:text-neutral-100"
+            disabled={!picked}
+            onclick={() => {
+              const input = source ?? audio;
+              const bounds = edges ?? spans;
+              if (!picked || !input || !bounds || !order || !spans) return;
+
+              const length = spans[picked.to + 1] - spans[picked.from];
+              const stitched = stitchChunks(
+                input,
+                bounds,
+                order.slice(picked.from, picked.to + 1)
+              );
+              const fade = Math.min(
+                length,
+                Math.round(input.sampleRate * 0.005)
+              );
+              const channels = stitched.channels.map((channel) => {
+                const data = channel.slice(0, length);
+                for (let i = 0; i < fade; i++) data[length - 1 - i] *= i / fade;
+                return data;
+              });
+
+              const url = URL.createObjectURL(
+                toWav({ channels, sampleRate: input.sampleRate, length })
+              );
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `${(name ?? "audio").replace(/\.[^.]+$/, "")}-chunks-${picked.from + 1}-${picked.to + 1}.wav`;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url));
+            }}
+          >
+            <Scissors size={14} />
+          </button>
+          <span
+            aria-hidden="true"
+            class="tooltip bottom-full left-1/2 mb-2 w-auto -translate-x-1/2 whitespace-nowrap {picked
+              ? 'group-hover:opacity-100'
+              : ''}"
+          >
+            Clip Selection
+          </span>
+        </span>
       {/if}
 
       {#if href && name}
-        <a
-          {href}
-          download={name}
-          aria-label="Download"
-          class="{button} {chunks ? '' : 'ml-auto'}"
-        >
-          <Download size={14} />
-        </a>
+        <span class="group relative flex {chunks ? '' : 'ml-auto'}">
+          <a {href} download={name} aria-label="Download" class={button}>
+            <Download size={14} />
+          </a>
+          <span
+            aria-hidden="true"
+            class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+          >
+            Download
+          </span>
+        </span>
       {/if}
 
       <p
