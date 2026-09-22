@@ -220,19 +220,13 @@
 
   $effect(() => {
     const host = strip;
-    if (!host) return;
+    const wave = container;
+    if (!host || !wave) return;
 
-    const zoom = (event: WheelEvent) => {
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      event.preventDefault();
-
-      const next = Math.min(
-        64,
-        Math.max(0.25, visible * (1 + event.deltaY / 400))
-      );
+    const zoom = (delta: number, x: number) => {
+      const next = Math.min(64, Math.max(0.25, visible * (1 + delta / 400)));
       if (next === visible) return;
 
-      const x = event.clientX - host.getBoundingClientRect().left;
       const anchor = (host.scrollLeft + x) / scale;
       visible = next;
 
@@ -242,8 +236,31 @@
       });
     };
 
-    host.addEventListener("wheel", zoom, { passive: false });
-    return () => host.removeEventListener("wheel", zoom);
+    const zoomStrip = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+
+      zoom(event.deltaY, event.clientX - host.getBoundingClientRect().left);
+    };
+
+    const steer = (event: WheelEvent) => {
+      if (!scale) return;
+      event.preventDefault();
+
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+        host.scrollLeft += event.deltaX;
+        return;
+      }
+
+      zoom(event.deltaY, stripWidth / 2);
+    };
+
+    host.addEventListener("wheel", zoomStrip, { passive: false });
+    wave.addEventListener("wheel", steer, { passive: false });
+    return () => {
+      host.removeEventListener("wheel", zoomStrip);
+      wave.removeEventListener("wheel", steer);
+    };
   });
 
   $effect(() => {
