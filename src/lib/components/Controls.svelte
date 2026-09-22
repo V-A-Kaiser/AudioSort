@@ -34,7 +34,9 @@
     (value) =>
       (sorter.windowTime = unit === "ms" ? value : (value * 1000) / rate)
   );
-  const onBpm = settle((value) => (sorter.bpm = value));
+  const onBpm = settle((value) => {
+    if (value > 0) sorter.bpm = value;
+  });
   const onSensitivity = settle((value) => (sorter.sensitivity = value));
   const onMinimum = settle(
     (value) =>

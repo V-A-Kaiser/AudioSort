@@ -69,6 +69,8 @@
     <Waveform
       file={sorter.sorted.blob}
       audio={sorter.sorted.audio}
+      source={sorter.source}
+      edges={sorter.sorted.edges}
       order={sorter.sorted.order}
       total={sorter.sorted.total}
       {describe}
