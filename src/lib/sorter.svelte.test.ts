@@ -37,6 +37,18 @@ describe("Sorter", () => {
     );
   });
 
+  it("reads the decoded audio in place instead of copying it", async () => {
+    const sorter = create();
+    sorter.take(wavFile(segments([0.8, 0.2])));
+    await vi.waitFor(() => expect(sorter.decoded).not.toBe(null), {
+      timeout: 5000
+    });
+
+    expect(sorter.source!.channels[0].buffer).toBe(
+      sorter.decoded!.getChannelData(0).buffer
+    );
+  });
+
   it("re-sorts when the direction flips", async () => {
     const sorter = create();
     sorter.take(wavFile(segments([0.8, 0.2, 0.6, 0.4])));

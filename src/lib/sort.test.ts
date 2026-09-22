@@ -233,14 +233,14 @@ describe("stitchChunks", () => {
     const gain = (index: number) => (Math.PI / 2) * (index / 8);
 
     for (let index = 0; index < 8; index++)
-      expect(data[index]).toBeCloseTo(3 * Math.sin(gain(index)), 5);
+      expect(data[index]).toBeCloseTo(3 * Math.sin(gain(index)) ** 2, 5);
 
     expect(data[8]).toBeCloseTo(3, 5);
     expect(data[63]).toBeCloseTo(3, 5);
 
     for (let index = 0; index < 8; index++)
       expect(data[64 + index]).toBeCloseTo(
-        4 * Math.cos(gain(index)) + 1 * Math.sin(gain(index)),
+        4 * Math.cos(gain(index)) ** 2 + 1 * Math.sin(gain(index)) ** 2,
         5
       );
 
@@ -248,7 +248,7 @@ describe("stitchChunks", () => {
     expect(data[127]).toBeCloseTo(1, 5);
 
     for (let index = 0; index < 8; index++)
-      expect(data[128 + index]).toBeCloseTo(2 * Math.cos(gain(index)), 5);
+      expect(data[128 + index]).toBeCloseTo(2 * Math.cos(gain(index)) ** 2, 5);
   });
 
   it("clips the lookahead at the end of the source", () => {
@@ -471,6 +471,37 @@ describe("uneven chunks", () => {
         Number(score.toFixed(3))
       )
     ).toEqual(levels);
+  });
+
+  it("scores uneven chunks by frequency as if each were scored alone", () => {
+    const bounds = [0, 300, 700, 1000, 1400, 1912];
+    const tones = [250, 1000, 500, 2000, 750];
+    const data = new Float32Array(1912);
+    tones.forEach((tone, chunk) => {
+      for (let index = bounds[chunk]; index < bounds[chunk + 1]; index++)
+        data[index] = sine(tone, index);
+    });
+    const tonal: Audio = { channels: [data], sampleRate: 8000, length: 1912 };
+
+    for (const measure of ["Mean", "Peak", "RMS"] as const) {
+      const alone = tones.map((_, chunk) => {
+        const size = bounds[chunk + 1] - bounds[chunk];
+        return chunkScores(
+          {
+            channels: [data.slice(bounds[chunk], bounds[chunk + 1])],
+            sampleRate: 8000,
+            length: size
+          },
+          size,
+          "Frequency",
+          measure
+        )[0];
+      });
+
+      Array.from(chunkScores(tonal, bounds, "Frequency", measure)).forEach(
+        (score, chunk) => expect(score).toBeCloseTo(alone[chunk], 6)
+      );
+    }
   });
 
   it("stitches chunks back to back at their own lengths", () => {

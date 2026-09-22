@@ -313,9 +313,9 @@ export const stitchChunks = (
     for (let i = Math.max(0, -source); i < span; i++) {
       const gain =
         i < blend
-          ? Math.sin((Math.PI / 2) * (i / blend))
+          ? Math.sin((Math.PI / 2) * (i / blend)) ** 2
           : i >= windowSize
-            ? Math.cos((Math.PI / 2) * ((i - windowSize) / blend))
+            ? Math.cos((Math.PI / 2) * ((i - windowSize) / blend)) ** 2
             : 1;
 
       for (let index = 0; index < numberOfChannels; index++)
@@ -356,17 +356,12 @@ export const toWav = (audio: Audio) => {
   ascii(36, "data");
   view.setUint32(40, bytes, true);
 
-  let offset = 44;
-  for (let i = 0; i < length; i++) {
-    for (const channel of channels) {
-      view.setInt16(
-        offset,
-        Math.max(-1, Math.min(1, channel[i])) * 0x7fff,
-        true
-      );
-      offset += 2;
-    }
-  }
+  const samples = new Int16Array(view.buffer, 44, length * numberOfChannels);
+  channels.forEach((channel, index) => {
+    for (let i = 0; i < length; i++)
+      samples[i * numberOfChannels + index] =
+        Math.max(-1, Math.min(1, channel[i])) * 0x7fff;
+  });
 
   return new Blob([view], { type: "audio/wav" });
 };

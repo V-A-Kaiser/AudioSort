@@ -45,6 +45,7 @@ const worker = self as unknown as {
 
 const scores = new Map<string, Float64Array>();
 const phases = new Map<number, number>();
+const slicings = new Map<string, number[]>();
 let source: Audio | null = null;
 let pending: Sort | null = null;
 
@@ -70,13 +71,15 @@ const run = (data: Sort) => {
     return start ? start - windowSize : 0;
   })();
 
-  const layout = transient
-    ? transients(audio, transient.sensitivity, transient.minimum, data.offset)
-    : windowSize;
-  const edges = grid(layout, audio.length, origin);
   const shape = transient
     ? `${transient.sensitivity}|${transient.minimum}|${data.offset}`
     : `${windowSize}|${origin}`;
+  const layout = transient
+    ? (slicings.get(shape) ??
+      transients(audio, transient.sensitivity, transient.minimum, data.offset))
+    : windowSize;
+  if (typeof layout !== "number") slicings.set(shape, layout);
+  const edges = grid(layout, audio.length, origin);
 
   const score = (target: Target, measure: Measure) => {
     const key = `${shape}|${target}|${measure}`;
@@ -125,6 +128,7 @@ worker.onmessage = ({ data }) => {
 
   scores.clear();
   phases.clear();
+  slicings.clear();
   source = {
     channels: data.channels,
     sampleRate: data.sampleRate,
