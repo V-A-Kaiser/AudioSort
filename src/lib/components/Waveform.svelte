@@ -656,7 +656,7 @@
         <button
           type="button"
           aria-label={playing ? "Pause" : "Play"}
-          class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40"
+          class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40 disabled:hover:bg-neutral-900 disabled:hover:text-neutral-100"
           disabled={!duration}
           onclick={() => {
             if (!playing) {
@@ -676,7 +676,9 @@
         </button>
         <span
           aria-hidden="true"
-          class="tooltip bottom-full left-0 mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+          class="tooltip bottom-full left-0 mb-2 w-auto whitespace-nowrap {duration
+            ? 'group-hover:opacity-100'
+            : ''}"
         >
           {playing ? "Pause" : "Play"}
         </span>
