@@ -473,6 +473,37 @@ describe("uneven chunks", () => {
     ).toEqual(levels);
   });
 
+  it("scores uneven chunks by frequency as if each were scored alone", () => {
+    const bounds = [0, 300, 700, 1000, 1400, 1912];
+    const tones = [250, 1000, 500, 2000, 750];
+    const data = new Float32Array(1912);
+    tones.forEach((tone, chunk) => {
+      for (let index = bounds[chunk]; index < bounds[chunk + 1]; index++)
+        data[index] = sine(tone, index);
+    });
+    const tonal: Audio = { channels: [data], sampleRate: 8000, length: 1912 };
+
+    for (const measure of ["Mean", "Peak", "RMS"] as const) {
+      const alone = tones.map((_, chunk) => {
+        const size = bounds[chunk + 1] - bounds[chunk];
+        return chunkScores(
+          {
+            channels: [data.slice(bounds[chunk], bounds[chunk + 1])],
+            sampleRate: 8000,
+            length: size
+          },
+          size,
+          "Frequency",
+          measure
+        )[0];
+      });
+
+      Array.from(chunkScores(tonal, bounds, "Frequency", measure)).forEach(
+        (score, chunk) => expect(score).toBeCloseTo(alone[chunk], 6)
+      );
+    }
+  });
+
   it("stitches chunks back to back at their own lengths", () => {
     const stitched = stitchChunks(audio, edges, [2, 1], 0);
 
