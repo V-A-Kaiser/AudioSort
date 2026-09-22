@@ -233,14 +233,14 @@ describe("stitchChunks", () => {
     const gain = (index: number) => (Math.PI / 2) * (index / 8);
 
     for (let index = 0; index < 8; index++)
-      expect(data[index]).toBeCloseTo(3 * Math.sin(gain(index)), 5);
+      expect(data[index]).toBeCloseTo(3 * Math.sin(gain(index)) ** 2, 5);
 
     expect(data[8]).toBeCloseTo(3, 5);
     expect(data[63]).toBeCloseTo(3, 5);
 
     for (let index = 0; index < 8; index++)
       expect(data[64 + index]).toBeCloseTo(
-        4 * Math.cos(gain(index)) + 1 * Math.sin(gain(index)),
+        4 * Math.cos(gain(index)) ** 2 + 1 * Math.sin(gain(index)) ** 2,
         5
       );
 
@@ -248,7 +248,7 @@ describe("stitchChunks", () => {
     expect(data[127]).toBeCloseTo(1, 5);
 
     for (let index = 0; index < 8; index++)
-      expect(data[128 + index]).toBeCloseTo(2 * Math.cos(gain(index)), 5);
+      expect(data[128 + index]).toBeCloseTo(2 * Math.cos(gain(index)) ** 2, 5);
   });
 
   it("clips the lookahead at the end of the source", () => {

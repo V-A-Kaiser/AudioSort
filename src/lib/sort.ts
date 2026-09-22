@@ -313,9 +313,9 @@ export const stitchChunks = (
     for (let i = Math.max(0, -source); i < span; i++) {
       const gain =
         i < blend
-          ? Math.sin((Math.PI / 2) * (i / blend))
+          ? Math.sin((Math.PI / 2) * (i / blend)) ** 2
           : i >= windowSize
-            ? Math.cos((Math.PI / 2) * ((i - windowSize) / blend))
+            ? Math.cos((Math.PI / 2) * ((i - windowSize) / blend)) ** 2
             : 1;
 
       for (let index = 0; index < numberOfChannels; index++)
