@@ -29,20 +29,20 @@
 <main class="flex min-h-screen flex-col items-center gap-4 p-4">
   <Title name="AudioSort" />
 
-  <div class="group relative cursor-help">
-    <h2 class="font-thin text-neutral-300">
-      "It's <em class="font-normal">sort</em>a good!"
-    </h2>
-    <h3 class="text-xs font-thin italic">
-      — Johann Carl Friedrich Gauss, Progenitor of FFT, 1805
-    </h3>
-
+  <figure class="group relative cursor-help">
     <span
       class="tooltip top-full left-1/2 mt-2 -translate-x-1/2 group-hover:opacity-100"
     >
       ...not a real quote, yet.
     </span>
-  </div>
+
+    <blockquote class="font-thin text-neutral-300">
+      <p>"It's <em class="font-normal">sort</em>a good!"</p>
+    </blockquote>
+    <figcaption class="text-xs font-thin italic">
+      — Johann Carl Friedrich Gauss, Progenitor of FFT, 1805
+    </figcaption>
+  </figure>
 
   {#if sorter.file}
     <div
