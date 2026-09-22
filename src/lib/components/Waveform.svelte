@@ -4,12 +4,16 @@
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
   import Download from "@lucide/svelte/icons/download";
+  import Scissors from "@lucide/svelte/icons/scissors";
+  import X from "@lucide/svelte/icons/x";
   import type WebAudioPlayer from "wavesurfer.js/dist/webaudio";
-  import type { Audio } from "$lib/sort";
+  import { stitchChunks, toWav, type Audio } from "$lib/sort";
 
   let {
     file,
     audio = null,
+    source = null,
+    edges = null,
     order = null,
     total = null,
     spans = null,
@@ -20,6 +24,8 @@
   }: {
     file: Blob;
     audio?: Audio | null;
+    source?: Audio | null;
+    edges?: number[] | null;
     order?: number[] | null;
     total?: number | null;
     spans?: number[] | null;
@@ -48,6 +54,17 @@
   let label = $state<HTMLElement | null>(null);
   let labelWidth = $state(0);
   let drift = $state(0);
+  let selection = $state.raw<{
+    from: number;
+    to: number;
+    spans: number[];
+  } | null>(null);
+  let dragging = $state<{
+    anchor: number;
+    shift: number;
+    span?: number;
+  } | null>(null);
+  let pointer = 0;
 
   const player = (instance: WaveSurfer | null) =>
     instance?.getMediaElement() as unknown as WebAudioPlayer | undefined;
@@ -69,8 +86,11 @@
 
     if (!to) return;
 
+    const current = surfer?.getCurrentTime() ?? 0;
     const remaining =
-      (surfer?.getDuration() ?? 0) - (surfer?.getCurrentTime() ?? 0);
+      (looped && current < looped.end
+        ? looped.end
+        : (surfer?.getDuration() ?? 0)) - current;
     if (remaining <= 0.024) return;
 
     node.gain.setValueAtTime(to, begin + remaining - 0.012);
@@ -139,6 +159,23 @@
     const sample = Math.floor((hover.view + offset) / scale) + first;
     return { sample: Math.max(0, sample), chunk: order[locate(sample)] };
   });
+  const picked = $derived(selection?.spans === spans ? selection : null);
+  const band = $derived(
+    picked && spans
+      ? {
+          left: (spans[picked.from] - first) * scale,
+          right: (spans[picked.to + 1] - first) * scale
+        }
+      : null
+  );
+  const looped = $derived(
+    picked && spans && audio
+      ? {
+          start: Math.max(0, spans[picked.from]) / audio.sampleRate,
+          end: Math.min(spans[picked.to + 1], audio.length) / audio.sampleRate
+        }
+      : null
+  );
   const playhead = $derived(
     audio && scale ? (position * audio.sampleRate - first) * scale : 0
   );
@@ -214,7 +251,7 @@
   });
 
   $effect(() => {
-    if (!playing || !strip || !stripWidth) return;
+    if (!playing || dragging || !strip || !stripWidth) return;
     strip.scrollLeft = playhead - stripWidth / 2;
   });
 
@@ -260,6 +297,57 @@
     return () => {
       host.removeEventListener("wheel", zoomStrip);
       wave.removeEventListener("wheel", steer);
+    };
+  });
+
+  $effect(() => {
+    const host = strip;
+    const drag = dragging;
+    if (!host || !drag || !spans) return;
+
+    const bounds = spans;
+    let frame = 0;
+
+    const follow = () => {
+      const edge =
+        pointer < 0 ? pointer : pointer > stripWidth ? pointer - stripWidth : 0;
+      if (edge) host.scrollLeft += edge / 2;
+
+      const chunk = locate(
+        Math.floor((host.scrollLeft + pointer + drag.shift) / scale) + first
+      );
+      const from =
+        drag.span === undefined
+          ? Math.min(drag.anchor, chunk)
+          : Math.min(Math.max(0, chunk - drag.anchor), chunks - 1 - drag.span);
+      const to =
+        drag.span === undefined
+          ? Math.max(drag.anchor, chunk)
+          : from + drag.span;
+      if (selection?.from !== from || selection?.to !== to)
+        selection = { from, to, spans: bounds };
+
+      frame = requestAnimationFrame(follow);
+    };
+
+    const move = (event: PointerEvent) =>
+      (pointer = event.clientX - host.getBoundingClientRect().left);
+
+    const release = () => {
+      dragging = null;
+      if (looped && duration)
+        surfer?.seekTo(Math.min(1, looped.start / duration));
+    };
+
+    frame = requestAnimationFrame(follow);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
     };
   });
 
@@ -319,7 +407,15 @@
     });
 
     instance.on("ready", (seconds) => (duration = seconds));
-    instance.on("timeupdate", (seconds) => (position = seconds));
+    let jumped = false;
+    instance.on("timeupdate", (seconds) => {
+      if (jumped) jumped = false;
+      else if (looped && position < looped.end && seconds >= looped.end) {
+        instance.seekTo(looped.start / instance.getDuration());
+        return;
+      }
+      position = seconds;
+    });
     const duck = () => ramp(1, 0);
     host.addEventListener("pointerdown", duck);
 
@@ -327,9 +423,18 @@
       playing = true;
       ramp(0, 1);
     });
-    instance.on("seeking", () => ramp(0, 1));
+    instance.on("seeking", () => {
+      jumped = true;
+      ramp(0, 1);
+    });
     instance.on("pause", () => (playing = false));
-    instance.on("finish", () => (playing = false));
+    instance.on("finish", () => {
+      playing = false;
+      if (!looped || looped.end < instance.getDuration() - 0.05) return;
+
+      instance.seekTo(looped.start / instance.getDuration());
+      void instance.play();
+    });
     instance.on("error", () => (error = "Could not decode this audio."));
     instance.on("interaction", () => void instance.play());
 
@@ -369,14 +474,25 @@
     >
       <button
         type="button"
-        aria-label="Seek"
-        onclick={(event) => {
-          if (!duration || !audio || !scale) return;
+        aria-label="Select chunks"
+        onpointerdown={(event) => {
+          if (!strip || !scale || !spans) return;
+          event.preventDefault();
 
-          const x =
-            event.clientX - event.currentTarget.getBoundingClientRect().left;
-          const seconds = (x / scale + first) / audio.sampleRate;
-          surfer?.seekTo(Math.min(1, Math.max(0, seconds / duration)));
+          pointer = event.clientX - strip.getBoundingClientRect().left;
+          const chunk = locate(
+            Math.floor((strip.scrollLeft + pointer) / scale) + first
+          );
+          dragging = picked
+            ? {
+                anchor: chunk - picked.from,
+                span: picked.to - picked.from,
+                shift:
+                  ((spans[chunk] + spans[chunk + 1]) / 2 - first) * scale -
+                  strip.scrollLeft -
+                  pointer
+              }
+            : { anchor: chunk, shift: 0 };
         }}
         onpointermove={(event) =>
           (hover = {
@@ -385,7 +501,11 @@
             view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
           })}
         onpointerleave={() => (hover = null)}
-        class="absolute top-0 left-0 h-full cursor-pointer"
+        class="absolute top-0 left-0 h-full {picked
+          ? dragging
+            ? 'cursor-grabbing'
+            : 'cursor-grab'
+          : 'cursor-pointer'}"
         style="width: {extent * scale}px"
       ></button>
 
@@ -422,6 +542,53 @@
         class="pointer-events-none absolute top-0 h-full w-px bg-neutral-50"
         style="left: {playhead}px"
       ></div>
+
+      {#if picked && band}
+        <div
+          class="pointer-events-none absolute top-0 h-full rounded-sm border border-neutral-50 bg-neutral-50/10"
+          style="left: {band.left}px; width: {band.right - band.left}px"
+        ></div>
+
+        {#each [{ at: band.left, grab: picked.from, anchor: picked.to, side: "start" }, { at: band.right, grab: picked.to, anchor: picked.from, side: "end" }] as handle (handle.side)}
+          <button
+            type="button"
+            aria-label="Resize selection {handle.side}"
+            onpointerdown={(event) => {
+              if (!strip) return;
+              event.preventDefault();
+
+              pointer = event.clientX - strip.getBoundingClientRect().left;
+              dragging = {
+                anchor: handle.anchor,
+                shift:
+                  ((spans![handle.grab] + spans![handle.grab + 1]) / 2 -
+                    first) *
+                    scale -
+                  strip.scrollLeft -
+                  pointer
+              };
+            }}
+            class="absolute top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full bg-neutral-300"
+            style="left: {handle.at}px"
+          ></button>
+        {/each}
+
+        <button
+          type="button"
+          aria-label="Cancel selection"
+          onclick={() => {
+            selection = null;
+            if (playing) ramp(1, 1);
+          }}
+          class="absolute top-1 flex size-5 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+          style="left: {Math.min(
+            Math.max(band.right + 4, offset + 4),
+            offset + stripWidth - 24
+          )}px"
+        >
+          <X size={12} />
+        </button>
+      {/if}
     </div>
   {/if}
 {/snippet}
@@ -507,12 +674,50 @@
         {/if}
       </button>
 
+      {#if chunks}
+        <button
+          type="button"
+          aria-label="Download selection"
+          class="{button} ml-auto cursor-pointer disabled:cursor-default disabled:opacity-40"
+          disabled={!picked}
+          onclick={() => {
+            const input = source ?? audio;
+            const bounds = edges ?? spans;
+            if (!picked || !input || !bounds || !order || !spans) return;
+
+            const length = spans[picked.to + 1] - spans[picked.from];
+            const stitched = stitchChunks(
+              input,
+              bounds,
+              order.slice(picked.from, picked.to + 1)
+            );
+            const fade = Math.min(length, Math.round(input.sampleRate * 0.005));
+            const channels = stitched.channels.map((channel) => {
+              const data = channel.slice(0, length);
+              for (let i = 0; i < fade; i++) data[length - 1 - i] *= i / fade;
+              return data;
+            });
+
+            const url = URL.createObjectURL(
+              toWav({ channels, sampleRate: input.sampleRate, length })
+            );
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${(name ?? "audio").replace(/\.[^.]+$/, "")}-chunks-${picked.from + 1}-${picked.to + 1}.wav`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url));
+          }}
+        >
+          <Scissors size={14} />
+        </button>
+      {/if}
+
       {#if href && name}
         <a
           {href}
           download={name}
           aria-label="Download"
-          class="{button} ml-auto"
+          class="{button} {chunks ? '' : 'ml-auto'}"
         >
           <Download size={14} />
         </a>
