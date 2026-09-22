@@ -54,11 +54,9 @@
   let label = $state<HTMLElement | null>(null);
   let labelWidth = $state(0);
   let drift = $state(0);
-  let selection = $state.raw<{
-    from: number;
-    to: number;
-    spans: number[];
-  } | null>(null);
+  let selection = $state.raw<{ from: number; to: number; key: Audio } | null>(
+    null
+  );
   let dragging = $state<{
     anchor: number;
     shift: number;
@@ -112,10 +110,15 @@
     );
 
     if (order && !slicing) {
+      const at = (position: number) =>
+        spans && audio
+          ? Math.min(1, Math.max(0, spans[position] / audio.length))
+          : position / order.length;
+
       order.forEach((source, position) => {
         const color = hue(source / (total ?? order.length), lightness);
-        gradient.addColorStop(position / order.length, color);
-        gradient.addColorStop((position + 1) / order.length, color);
+        gradient.addColorStop(at(position), color);
+        gradient.addColorStop(at(position + 1), color);
       });
     } else {
       for (let stop = 0; stop <= 32; stop++)
@@ -159,7 +162,14 @@
     const sample = Math.floor((hover.view + offset) / scale) + first;
     return { sample: Math.max(0, sample), chunk: order[locate(sample)] };
   });
-  const picked = $derived(selection?.spans === spans ? selection : null);
+  const picked = $derived(
+    selection && chunks && selection.key === (source ?? audio)
+      ? {
+          from: Math.min(selection.from, chunks - 1),
+          to: Math.min(selection.to, chunks - 1)
+        }
+      : null
+  );
   const band = $derived(
     picked && spans
       ? {
@@ -179,12 +189,16 @@
   const playhead = $derived(
     audio && scale ? (position * audio.sampleRate - first) * scale : 0
   );
-  const peak = $derived(
-    audio?.channels[0].reduce(
-      (max, value) => Math.max(max, Math.abs(value)),
-      0
-    ) || 1
-  );
+  const peak = $derived.by(() => {
+    const data = audio?.channels[0] ?? [];
+    let low = 0;
+    let high = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] < low) low = data[i];
+      if (data[i] > high) high = data[i];
+    }
+    return Math.max(high, -low) || 1;
+  });
   const view = $derived.by(() => {
     if (!audio || !scale) return null;
 
@@ -303,9 +317,9 @@
   $effect(() => {
     const host = strip;
     const drag = dragging;
-    if (!host || !drag || !spans) return;
+    const key = source ?? audio;
+    if (!host || !drag || !key) return;
 
-    const bounds = spans;
     let frame = 0;
 
     const follow = () => {
@@ -325,7 +339,7 @@
           ? Math.max(drag.anchor, chunk)
           : from + drag.span;
       if (selection?.from !== from || selection?.to !== to)
-        selection = { from, to, spans: bounds };
+        selection = { from, to, key };
 
       frame = requestAnimationFrame(follow);
     };
@@ -406,7 +420,10 @@
       dragToSeek: true
     });
 
-    instance.on("ready", (seconds) => (duration = seconds));
+    instance.on("ready", (seconds) => {
+      duration = seconds;
+      if (looped) instance.seekTo(looped.start / seconds);
+    });
     let jumped = false;
     instance.on("timeupdate", (seconds) => {
       if (jumped) jumped = false;
@@ -440,7 +457,17 @@
 
     void instance.loadBlob(
       file,
-      decoded.channels.map((channel) => channel.slice()),
+      decoded.channels.map((channel) => {
+        const block = Math.max(1, Math.ceil(channel.length / 8192));
+        const peaks = new Float32Array(Math.ceil(channel.length / block));
+        for (let index = 0; index < peaks.length; index++) {
+          const end = Math.min(channel.length, (index + 1) * block);
+          for (let i = index * block; i < end; i++)
+            if (Math.abs(channel[i]) > peaks[index])
+              peaks[index] = Math.abs(channel[i]);
+        }
+        return peaks;
+      }),
       decoded.length / decoded.sampleRate
     );
     surfer = instance;

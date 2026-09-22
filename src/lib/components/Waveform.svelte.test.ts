@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
 import { grid, toWav } from "$lib/sort";
 import { segments } from "$lib/testing/audio";
@@ -207,5 +207,108 @@ describe("Waveform", () => {
 
     await screen.getByRole("button", { name: "Cancel selection" }).click();
     await expect.element(save).toBeDisabled();
+  });
+
+  it("scales a quiet waveform to fill the strip", async () => {
+    const quiet = segments([0.25, 0.25, 0.25, 0.25]);
+    const screen = await render(Waveform, {
+      file: toWav(quiet),
+      audio: quiet,
+      order: [0, 1, 2, 3],
+      spans: grid(2000, quiet.length)
+    });
+    const canvas = screen.container.querySelector("canvas")!;
+
+    const top = () => {
+      const ratio = canvas.height / canvas.clientHeight;
+      const x = Math.round((canvas.width * 1) / 16);
+      const { data } = canvas
+        .getContext("2d")!
+        .getImageData(x, 0, 1, canvas.height);
+      for (let row = 0; row < canvas.height; row++)
+        if (data[row * 4 + 3] && data[row * 4] !== 0x52) return row / ratio;
+      return Infinity;
+    };
+
+    await expect.poll(top).toBeLessThan(20);
+    expect(top()).toBeGreaterThanOrEqual(14);
+  });
+
+  it("colours the sorted waveform by each chunk's own length", async () => {
+    const stops = vi.spyOn(CanvasGradient.prototype, "addColorStop");
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: [1, 0],
+      total: 2,
+      spans: [0, 2000, 8000]
+    });
+
+    await expect
+      .element(screen.getByRole("button", { name: "Play" }))
+      .toBeEnabled();
+    await expect.poll(() => stops.mock.calls.map(([at]) => at)).toContain(0.25);
+    expect(stops.mock.calls.map(([at]) => at)).not.toContain(0.5);
+    stops.mockRestore();
+  });
+
+  it("draws a quiet main waveform at full height", async () => {
+    const quiet = segments([0.25, 0.25, 0.25, 0.25]);
+    const screen = await render(Waveform, {
+      file: toWav(quiet),
+      audio: quiet
+    });
+    await expect
+      .element(screen.getByRole("button", { name: "Play" }))
+      .toBeEnabled();
+
+    const top = () => {
+      const canvas = [
+        ...screen.container.querySelectorAll("div.h-32 > div")
+      ].flatMap((host) => [
+        ...(host.shadowRoot?.querySelectorAll("canvas") ?? [])
+      ])[0];
+      if (!canvas?.height) return Infinity;
+
+      const { data } = canvas
+        .getContext("2d")!
+        .getImageData(Math.round(canvas.width / 2), 0, 1, canvas.height);
+      for (let row = 0; row < canvas.height; row++)
+        if (data[row * 4 + 3]) return row / canvas.height;
+      return Infinity;
+    };
+
+    await expect.poll(top).toBeLessThan(0.05);
+  });
+
+  it("keeps the selection through a re-sort but not a new source", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: [0, 1, 2, 3],
+      spans: grid(2000, audio.length)
+    });
+    const select = screen.getByRole("button", { name: "Select chunks" });
+    await expect.element(select).toBeInTheDocument();
+
+    const box = select.element().getBoundingClientRect();
+    const at = (chunk: number) => ({
+      clientX: box.left + (box.width / 4) * (chunk + 0.5),
+      clientY: box.top + box.height / 2,
+      bubbles: true
+    });
+    select.element().dispatchEvent(new PointerEvent("pointerdown", at(1)));
+    const cancel = screen.getByRole("button", { name: "Cancel selection" });
+    await expect.element(cancel).toBeInTheDocument();
+    window.dispatchEvent(new PointerEvent("pointerup", at(1)));
+
+    await screen.rerender({
+      order: [3, 2, 1, 0],
+      spans: grid(2000, audio.length)
+    });
+    await expect.element(cancel).toBeInTheDocument();
+
+    await screen.rerender({ audio: segments([0.4, 0.3, 0.2, 0.1]) });
+    await expect.element(cancel).not.toBeInTheDocument();
   });
 });
