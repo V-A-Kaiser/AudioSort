@@ -250,4 +250,58 @@ describe("sort.worker", () => {
       )
     );
   });
+
+  it("keeps the transient slicing across a direction flip", async () => {
+    const { posted, send } = await harness();
+    const data = new Float32Array(4096);
+    [700, 2500].forEach((hit) => {
+      for (let index = 0; index < 800; index++)
+        data[hit + index] = Math.exp(-index / 80) * Math.sin(index / 3);
+    });
+    const transient = { sensitivity: 0.9, minimum: 256 };
+
+    send({ type: "load", channels: [data], sampleRate: 8000, length: 4096 });
+    send({ ...sort(1), transient });
+    send({ ...sort(2, "Descending"), transient });
+
+    expect(
+      vi.mocked((await import("./sort")).transients)
+    ).toHaveBeenCalledTimes(1);
+    expect(posted[1].message.edges).toEqual(posted[0].message.edges);
+
+    const ranked = posted[1].message.scores as Float64Array;
+    const order = posted[1].message.order as number[];
+    order
+      .slice(1)
+      .forEach((chunk, index) =>
+        expect(ranked[chunk]).toBeLessThanOrEqual(ranked[order[index]])
+      );
+  });
+
+  it("slices a newly loaded source at its own transients", async () => {
+    const { posted, send } = await harness();
+    const struck = (hit: number) => {
+      const data = new Float32Array(4096);
+      for (let index = 0; index < 800; index++)
+        data[hit + index] = Math.exp(-index / 80) * Math.sin(index / 3);
+      return { type: "load", channels: [data], sampleRate: 8000, length: 4096 };
+    };
+    const transient = { sensitivity: 0.9, minimum: 256 };
+
+    send(struck(700));
+    send({ ...sort(1), transient });
+    send(struck(2500));
+    send({ ...sort(2), transient });
+
+    expect(
+      vi.mocked((await import("./sort")).transients)
+    ).toHaveBeenCalledTimes(2);
+
+    const [first, second] = posted.map(
+      ({ message }) => (message.edges as number[])[1]
+    );
+    expect(first).toBeLessThanOrEqual(700);
+    expect(second).toBeGreaterThan(700);
+    expect(second).toBeLessThanOrEqual(2500);
+  });
 });
