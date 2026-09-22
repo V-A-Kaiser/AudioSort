@@ -75,7 +75,7 @@ export class Sorter {
 
     return {
       channels: Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-        buffer.getChannelData(index).slice()
+        buffer.getChannelData(index)
       ),
       sampleRate: buffer.sampleRate,
       length: buffer.length
@@ -129,6 +129,7 @@ export class Sorter {
     if (!file) return;
 
     this.decoded = null;
+    this.sorted = null;
     this.file = file;
   };
 
@@ -212,10 +213,7 @@ export class Sorter {
             }
           : null;
 
-      if (!audio || !instance) {
-        this.sorted = null;
-        return;
-      }
+      if (!audio || !instance) return;
 
       const id = ++this.#ticket;
 
