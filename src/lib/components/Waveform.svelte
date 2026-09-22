@@ -142,6 +142,22 @@
   const playhead = $derived(
     audio && scale ? (position * audio.sampleRate - first) * scale : 0
   );
+  const peak = $derived(
+    audio?.channels[0].reduce(
+      (max, value) => Math.max(max, Math.abs(value)),
+      0
+    ) || 1
+  );
+  const view = $derived.by(() => {
+    if (!audio || !scale) return null;
+
+    const start = Math.max(0, (offset / scale + first) / audio.length);
+    const end = Math.min(
+      1,
+      ((offset + stripWidth) / scale + first) / audio.length
+    );
+    return { left: start * 100, width: Math.max(0, end - start) * 100 };
+  });
 
   $effect(() => {
     const target = canvas;
@@ -162,7 +178,7 @@
 
     const data = audio.channels[0];
     const middle = height / 2;
-    const reach = middle - 16;
+    const reach = (middle - 16) / peak;
 
     context.fillStyle = "#525252";
     for (
@@ -211,7 +227,7 @@
       event.preventDefault();
 
       const next = Math.min(
-        32,
+        64,
         Math.max(0.25, visible * (1 + event.deltaY / 400))
       );
       if (next === visible) return;
@@ -280,8 +296,7 @@
       backend: "WebAudio",
       waveColor: "#525252",
       progressColor: "#e5e5e5",
-      cursorColor: "#fafafa",
-      cursorWidth: 1,
+      cursorWidth: 0,
       normalize: true,
       dragToSeek: true
     });
@@ -382,8 +397,8 @@
 
       <canvas
         bind:this={canvas}
-        class="pointer-events-none absolute top-0 h-full"
-        style="left: {offset}px; width: {stripWidth}px"
+        class="pointer-events-none sticky left-0 block h-full"
+        style="width: {stripWidth}px"
       ></canvas>
 
       <div
@@ -418,6 +433,13 @@
 
   <div class="relative" bind:clientWidth={width}>
     <div class="h-32" bind:this={container}></div>
+
+    {#if view && duration}
+      <div
+        class="pointer-events-none absolute top-0 z-10 h-full rounded-sm border border-neutral-50 bg-neutral-50/10"
+        style="left: {view.left}%; width: {view.width}%"
+      ></div>
+    {/if}
 
     {#if !duration && !error}
       <div class="absolute inset-0 flex items-center gap-[2px]">
