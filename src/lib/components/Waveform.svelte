@@ -504,7 +504,7 @@
       bind:this={strip}
       bind:clientWidth={stripWidth}
       onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
-      class="relative h-32 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+      class="relative h-32 scrollbar-none overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
     >
       <button
         type="button"
@@ -656,7 +656,7 @@
     {/if}
 
     {#if !duration && !error}
-      <div class="absolute inset-0 flex items-center gap-[2px]">
+      <div class="absolute inset-0 flex items-center gap-0.5">
         {#each bars as height, bar (bar)}
           <div
             class="flex-1 animate-pulse rounded-full bg-neutral-700"
