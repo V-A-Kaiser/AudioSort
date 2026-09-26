@@ -26,12 +26,13 @@
   );
 </script>
 
-<main class="flex min-h-screen flex-col items-center gap-4 p-4">
+<main class="flex min-h-dvh flex-col items-center gap-4 p-4">
   <Title name="AudioSort" />
 
-  <figure class="group relative cursor-help">
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <figure tabindex="0" class="group relative cursor-help focus:outline-none">
     <span
-      class="tooltip top-full left-1/2 mt-2 -translate-x-1/2 group-hover:opacity-100"
+      class="tooltip top-full left-1/2 mt-2 -translate-x-1/2 group-hover:opacity-100 group-focus:opacity-100"
     >
       ...not a real quote, yet.
     </span>

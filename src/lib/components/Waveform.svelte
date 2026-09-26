@@ -156,6 +156,13 @@
     return low;
   };
 
+  const track = (event: PointerEvent) =>
+    (hover = {
+      x: event.clientX,
+      y: event.clientY,
+      view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
+    });
+
   const hovered = $derived.by(() => {
     if (!hover || !scale || !order) return null;
 
@@ -497,12 +504,13 @@
       bind:this={strip}
       bind:clientWidth={stripWidth}
       onscroll={(event) => (offset = event.currentTarget.scrollLeft)}
-      class="relative h-32 [scrollbar-width:none] overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+      class="relative h-32 scrollbar-none overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
     >
       <button
         type="button"
         aria-label="Select chunks"
         onpointerdown={(event) => {
+          track(event);
           if (!strip || !scale || !spans) return;
           event.preventDefault();
 
@@ -521,12 +529,7 @@
               }
             : { anchor: chunk, shift: 0 };
         }}
-        onpointermove={(event) =>
-          (hover = {
-            x: event.clientX,
-            y: event.clientY,
-            view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
-          })}
+        onpointermove={track}
         onpointerleave={() => (hover = null)}
         class="absolute top-0 left-0 h-full {picked
           ? dragging
@@ -653,7 +656,7 @@
     {/if}
 
     {#if !duration && !error}
-      <div class="absolute inset-0 flex items-center gap-[2px]">
+      <div class="absolute inset-0 flex items-center gap-0.5">
         {#each bars as height, bar (bar)}
           <div
             class="flex-1 animate-pulse rounded-full bg-neutral-700"

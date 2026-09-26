@@ -68,7 +68,7 @@
       Offset
       {@render info(
         "The amount to shift the slicing grid. Negative values shift the waveform forward.",
-        "middle"
+        "end"
       )}
     </span>
   </div>
@@ -99,7 +99,7 @@
 
 {#snippet info(
   text: string,
-  align: "start" | "middle" | "split",
+  align: "start" | "middle" | "end" | "split",
   points: readonly [string, string][] = []
 )}
   <span class="group relative inline-flex items-center">
@@ -108,6 +108,7 @@
       aria-label="{text} {points
         .map(([term, detail]) => `${term}: ${detail}`)
         .join(' ')}"
+      onclick={(event) => event.currentTarget.focus()}
       class="cursor-help"
     >
       <Info
@@ -122,7 +123,9 @@
         ? 'left-0'
         : align === 'middle'
           ? 'left-1/2 -translate-x-1/2'
-          : 'left-0 xs:right-0 xs:left-auto'}"
+          : align === 'end'
+            ? 'right-0'
+            : 'left-0 xs:right-0 xs:left-auto'}"
     >
       {text}
 
@@ -328,7 +331,7 @@
         <span id="beat-slice" class="whitespace-nowrap">Beat Slice</span>
         {@render info(
           "Start chunk slicing at the first detected transient. Useful for slicing tracks with consistent rhythmic elements. Use the offset value to shift where the start occurs. Not utilized in transient slicing mode.",
-          "start"
+          "end"
         )}
       </span>
       <label
