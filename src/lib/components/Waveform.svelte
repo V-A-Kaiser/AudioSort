@@ -156,6 +156,13 @@
     return low;
   };
 
+  const track = (event: PointerEvent) =>
+    (hover = {
+      x: event.clientX,
+      y: event.clientY,
+      view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
+    });
+
   const hovered = $derived.by(() => {
     if (!hover || !scale || !order) return null;
 
@@ -503,6 +510,7 @@
         type="button"
         aria-label="Select chunks"
         onpointerdown={(event) => {
+          track(event);
           if (!strip || !scale || !spans) return;
           event.preventDefault();
 
@@ -521,12 +529,7 @@
               }
             : { anchor: chunk, shift: 0 };
         }}
-        onpointermove={(event) =>
-          (hover = {
-            x: event.clientX,
-            y: event.clientY,
-            view: event.clientX - (strip?.getBoundingClientRect().left ?? 0)
-          })}
+        onpointermove={track}
         onpointerleave={() => (hover = null)}
         class="absolute top-0 left-0 h-full {picked
           ? dragging

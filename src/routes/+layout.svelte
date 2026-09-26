@@ -51,6 +51,6 @@
   <!-- eslint-disable-next-line svelte/no-at-html-tags, no-useless-escape -->
   {@html `<script type="application/ld+json">${jsonLd}<\/script>`}
 </svelte:head>
-<div class="min-h-screen bg-neutral-900 text-neutral-100">
+<div class="min-h-dvh bg-neutral-900 text-neutral-100">
   {@render children()}
 </div>
