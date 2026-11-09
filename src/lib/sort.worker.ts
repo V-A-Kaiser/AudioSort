@@ -1,3 +1,4 @@
+import { createMp3Encoder } from "wasm-media-encoders";
 import {
   beatPhase,
   chunkScores,
@@ -25,7 +26,9 @@ type Sort = {
   transient: { sensitivity: number; minimum: number } | null;
 };
 
-export type SortRequest = ({ type: "load" } & Audio) | Sort;
+type Encode = { type: "encode"; id: number } & Audio;
+
+export type SortRequest = ({ type: "load" } & Audio) | Sort | Encode;
 
 export type SortResponse = Audio & {
   id: number;
@@ -38,9 +41,14 @@ export type SortResponse = Audio & {
   channels: Float32Array<ArrayBuffer>[];
 };
 
+export type EncodeResponse = { id: number; mp3: Blob | null };
+
 const worker = self as unknown as {
   onmessage: ((event: MessageEvent<SortRequest>) => void) | null;
-  postMessage: (message: SortResponse, transfer: Transferable[]) => void;
+  postMessage: (
+    message: SortResponse | EncodeResponse,
+    transfer?: Transferable[]
+  ) => void;
 };
 
 const scores = new Map<string, Float64Array>();
@@ -121,7 +129,37 @@ const run = (data: Sort) => {
 };
 
 worker.onmessage = ({ data }) => {
-  if (data.type !== "load") {
+  if (data.type === "encode") {
+    void (async () => {
+      const encoder = await createMp3Encoder();
+      const channels = data.channels.slice(0, 2);
+      encoder.configure({
+        sampleRate: data.sampleRate,
+        channels: channels.length as 1 | 2,
+        bitrate: 192
+      });
+
+      const parts: Uint8Array<ArrayBuffer>[] = [];
+      for (let start = 0; start < data.length; start += data.sampleRate)
+        parts.push(
+          encoder
+            .encode(
+              channels.map((channel) =>
+                channel.subarray(start, start + data.sampleRate)
+              )
+            )
+            .slice()
+        );
+      parts.push(encoder.finalize().slice());
+
+      return new Blob(parts, { type: "audio/mpeg" });
+    })()
+      .catch(() => null)
+      .then((mp3) => worker.postMessage({ id: data.id, mp3 }));
+    return;
+  }
+
+  if (data.type === "sort") {
     run(data);
     return;
   }

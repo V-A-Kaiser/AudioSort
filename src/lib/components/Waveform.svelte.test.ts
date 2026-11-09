@@ -56,9 +56,64 @@ describe("Waveform", () => {
       download: true
     });
 
-    const link = screen.getByRole("link", { name: "Download" });
+    const link = screen.getByRole("link", { name: "Download WAV" });
     await expect.element(link).toHaveAttribute("download", "sorted.wav");
     expect(link.element().getAttribute("href")).toMatch(/^blob:/);
+  });
+
+  it("saves the encoded MP3 under the given name", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    const mp3 = vi.fn(async () => new Blob(["mp3"], { type: "audio/mpeg" }));
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      name: "sorted.wav",
+      download: true,
+      mp3
+    });
+
+    await screen.getByRole("button", { name: "Download MP3" }).click();
+
+    await vi.waitFor(() => expect(saved).toEqual(["sorted.mp3"]));
+    expect(mp3).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it("reports a failed MP3 encode and lets it be retried", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      name: "sorted.wav",
+      download: true,
+      mp3: async () => null
+    });
+    const button = screen.getByRole("button", { name: "Download MP3" });
+
+    await button.click();
+
+    await expect
+      .element(screen.getByText("Encoding failed"))
+      .toBeInTheDocument();
+    await expect.element(button).toBeEnabled();
+  });
+
+  it("offers to clear the audio only when asked", async () => {
+    const onclear = vi.fn();
+    const screen = await render(Waveform, { file, audio, onclear });
+
+    await screen.getByRole("button", { name: "Clear audio" }).click();
+    expect(onclear).toHaveBeenCalledTimes(1);
+    await screen.unmount();
+
+    const plain = await render(Waveform, { file, audio });
+    expect(
+      plain.getByRole("button", { name: "Clear audio" }).elements()
+    ).toHaveLength(0);
   });
 
   it("draws the slicing strip below the waveform when slicing", async () => {

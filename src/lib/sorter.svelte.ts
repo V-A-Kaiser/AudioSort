@@ -1,5 +1,5 @@
 import SortWorker from "./sort.worker?worker";
-import type { SortRequest, SortResponse } from "./sort.worker";
+import type { EncodeResponse, SortRequest, SortResponse } from "./sort.worker";
 import {
   tempo,
   type Audio,
@@ -132,6 +132,34 @@ export class Sorter {
     this.sorted = null;
     this.file = file;
   };
+
+  clear = () => {
+    this.file = null;
+    this.decoded = null;
+    this.sorted = null;
+  };
+
+  mp3 = () =>
+    new Promise<Blob | null>((resolve) => {
+      const instance = this.#worker!;
+      const id = ++this.#ticket;
+
+      const receive = ({
+        data
+      }: MessageEvent<SortResponse | EncodeResponse>) => {
+        if (data.id !== id || !("mp3" in data)) return;
+
+        instance.removeEventListener("message", receive);
+        resolve(data.mp3);
+      };
+
+      instance.addEventListener("message", receive);
+      instance.postMessage({
+        type: "encode",
+        id,
+        ...this.sorted!.audio
+      } satisfies SortRequest);
+    });
 
   constructor() {
     $effect(() => {

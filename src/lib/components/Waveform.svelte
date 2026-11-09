@@ -4,6 +4,7 @@
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
   import Download from "@lucide/svelte/icons/download";
+  import Eraser from "@lucide/svelte/icons/eraser";
   import Scissors from "@lucide/svelte/icons/scissors";
   import X from "@lucide/svelte/icons/x";
   import type WebAudioPlayer from "wavesurfer.js/dist/webaudio";
@@ -20,7 +21,9 @@
     slicing = false,
     describe = null,
     name = null,
-    download = false
+    download = false,
+    mp3 = null,
+    onclear = null
   }: {
     file: Blob;
     audio?: Audio | null;
@@ -33,6 +36,8 @@
     describe?: ((chunk: number) => string) | null;
     name?: string | null;
     download?: boolean;
+    mp3?: (() => Promise<Blob | null>) | null;
+    onclear?: (() => void) | null;
   } = $props();
 
   let visible = $state(8);
@@ -51,6 +56,8 @@
   let duration = $state(0);
   let error = $state<string | null>(null);
   let href = $state<string | null>(null);
+  let encoding = $state(false);
+  let failed = $state(false);
   let label = $state<HTMLElement | null>(null);
   let labelWidth = $state(0);
   let drift = $state(0);
@@ -67,8 +74,19 @@
   const player = (instance: WaveSurfer | null) =>
     instance?.getMediaElement() as unknown as WebAudioPlayer | undefined;
 
-  const button =
-    "flex size-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900";
+  const shape =
+    "flex h-7 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-100 transition-colors hover:bg-neutral-100 hover:text-neutral-900";
+  const button = `${shape} w-7`;
+  const pill = `${shape} gap-1 px-2 font-mono text-[10px]`;
+
+  const save = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url));
+  };
 
   const ramp = (from: number, to: number) => {
     const node = player(surfer)?.getGainNode();
@@ -681,7 +699,7 @@
       ></div>
     </div>
 
-    <div class="relative flex items-center gap-3">
+    <div class="relative flex items-center gap-2 xs:gap-3">
       <span class="group relative flex">
         <button
           type="button"
@@ -714,76 +732,127 @@
         </span>
       </span>
 
-      {#if chunks}
-        <span class="group relative ml-auto flex">
-          <button
-            type="button"
-            aria-label="Clip selection"
-            class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40 disabled:hover:bg-neutral-900 disabled:hover:text-neutral-100"
-            disabled={!picked}
-            onclick={() => {
-              const input = source ?? audio;
-              const bounds = edges ?? spans;
-              if (!picked || !input || !bounds || !order || !spans) return;
-
-              const length = spans[picked.to + 1] - spans[picked.from];
-              const stitched = stitchChunks(
-                input,
-                bounds,
-                order.slice(picked.from, picked.to + 1)
-              );
-              const fade = Math.min(
-                length,
-                Math.round(input.sampleRate * 0.005)
-              );
-              const channels = stitched.channels.map((channel) => {
-                const data = channel.slice(0, length);
-                for (let i = 0; i < fade; i++) data[length - 1 - i] *= i / fade;
-                return data;
-              });
-
-              const url = URL.createObjectURL(
-                toWav({ channels, sampleRate: input.sampleRate, length })
-              );
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `${(name ?? "audio").replace(/\.[^.]+$/, "")}-chunks-${picked.from + 1}-${picked.to + 1}.wav`;
-              link.click();
-              setTimeout(() => URL.revokeObjectURL(url));
-            }}
-          >
-            <Scissors size={14} />
-          </button>
-          <span
-            aria-hidden="true"
-            class="tooltip bottom-full left-1/2 mb-2 w-auto -translate-x-1/2 whitespace-nowrap {picked
-              ? 'group-hover:opacity-100'
-              : ''}"
-          >
-            Clip Selection
-          </span>
-        </span>
-      {/if}
-
-      {#if href && name}
-        <span class="group relative flex {chunks ? '' : 'ml-auto'}">
-          <a {href} download={name} aria-label="Download" class={button}>
-            <Download size={14} />
-          </a>
-          <span
-            aria-hidden="true"
-            class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
-          >
-            Download
-          </span>
-        </span>
-      {/if}
-
       <p
-        class="pointer-events-none absolute left-1/2 -translate-x-1/2 font-mono text-xs text-neutral-400 select-none"
+        class="pointer-events-none font-mono text-xs text-neutral-400 select-none xs:absolute xs:left-1/2 xs:-translate-x-1/2"
       >
         {duration ? `${clock(position)} / ${clock(duration)}` : "Decoding…"}
       </p>
+
+      <div class="ml-auto flex items-center gap-2 xs:gap-3">
+        {#if chunks}
+          <span class="group relative flex">
+            <button
+              type="button"
+              aria-label="Clip selection"
+              class="{button} cursor-pointer disabled:cursor-default disabled:opacity-40 disabled:hover:bg-neutral-900 disabled:hover:text-neutral-100"
+              disabled={!picked}
+              onclick={() => {
+                const input = source ?? audio;
+                const bounds = edges ?? spans;
+                if (!picked || !input || !bounds || !order || !spans) return;
+
+                const length = spans[picked.to + 1] - spans[picked.from];
+                const stitched = stitchChunks(
+                  input,
+                  bounds,
+                  order.slice(picked.from, picked.to + 1)
+                );
+                const fade = Math.min(
+                  length,
+                  Math.round(input.sampleRate * 0.005)
+                );
+                const channels = stitched.channels.map((channel) => {
+                  const data = channel.slice(0, length);
+                  for (let i = 0; i < fade; i++)
+                    data[length - 1 - i] *= i / fade;
+                  return data;
+                });
+
+                save(
+                  toWav({ channels, sampleRate: input.sampleRate, length }),
+                  `${(name ?? "audio").replace(/\.[^.]+$/, "")}-chunks-${picked.from + 1}-${picked.to + 1}.wav`
+                );
+              }}
+            >
+              <Scissors size={14} />
+            </button>
+            <span
+              aria-hidden="true"
+              class="tooltip bottom-full left-1/2 mb-2 w-auto -translate-x-1/2 whitespace-nowrap {picked
+                ? 'group-hover:opacity-100'
+                : ''}"
+            >
+              Clip Selection
+            </span>
+          </span>
+        {/if}
+
+        {#if href && name}
+          <span class="group relative flex">
+            <a {href} download={name} aria-label="Download WAV" class={pill}>
+              WAV
+              <Download size={12} />
+            </a>
+            <span
+              aria-hidden="true"
+              class="tooltip bottom-full left-1/2 mb-2 w-auto -translate-x-1/2 whitespace-nowrap group-hover:opacity-100"
+            >
+              Download WAV
+            </span>
+          </span>
+
+          {#if mp3}
+            <span class="group relative flex">
+              <button
+                type="button"
+                aria-label="Download MP3"
+                class="{pill} cursor-pointer disabled:animate-pulse disabled:cursor-default disabled:hover:bg-neutral-900 disabled:hover:text-neutral-100"
+                disabled={encoding}
+                onclick={async () => {
+                  const filename = name.replace(/\.[^.]+$/, ".mp3");
+                  encoding = true;
+                  const blob = await mp3();
+                  encoding = false;
+                  failed = !blob;
+                  if (blob) save(blob, filename);
+                }}
+              >
+                MP3
+                <Download size={12} />
+              </button>
+              <span
+                aria-hidden="true"
+                class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+              >
+                {encoding
+                  ? "Encoding…"
+                  : failed
+                    ? "Encoding failed"
+                    : "Download MP3"}
+              </span>
+            </span>
+          {/if}
+        {/if}
+
+        {#if onclear}
+          <span class="group relative flex">
+            <button
+              type="button"
+              aria-label="Clear audio"
+              class="{button} cursor-pointer"
+              onclick={onclear}
+            >
+              <Eraser size={14} />
+            </button>
+            <span
+              aria-hidden="true"
+              class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+            >
+              Clear Audio
+            </span>
+          </span>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>

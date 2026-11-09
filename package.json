@@ -6,7 +6,7 @@
   },
   "description": "A concatenative synthesis audio sorting tool.",
   "private": true,
-  "version": "1.5.1",
+  "version": "1.6.4",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.47.0",
+    "wasm-media-encoders": "^0.7.0",
     "wavesurfer.js": "^7.12.12"
   }
 }

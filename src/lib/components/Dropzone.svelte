@@ -22,8 +22,13 @@
     {#if notice}
       <p class="text-lg text-red-400">{notice}</p>
     {:else}
-      <p class="text-lg text-neutral-300">Drop audio file here.</p>
-      <p class="text-sm text-neutral-500">Click to browse.</p>
+      <p class="text-lg text-neutral-300">
+        Drop audio file here, or click to browse.
+      </p>
+      <p class="text-sm text-neutral-500">
+        Supported File Types:<br />
+        WAV, MP3, M4A (AAC), FLAC, OGG (Vorbis or Opus) and WebM (Opus)
+      </p>
     {/if}
   </div>
 </label>
