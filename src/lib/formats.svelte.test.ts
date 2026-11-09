@@ -85,8 +85,9 @@ describe("audio formats in Chromium", () => {
 
   it("lines a 168 BPM render up with its eighth-note grid", async () => {
     const sorter = await load("cage.mp3", cage);
+    expect(sorter.bpm).toBe(168);
+
     sorter.mode = "Tempo";
-    sorter.bpm = 168;
     await vi.waitFor(() =>
       expect(sorter.sorted?.windowSize).toBe(sorter.samples)
     );

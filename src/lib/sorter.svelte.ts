@@ -1,12 +1,7 @@
+import { analyze } from "web-audio-beat-detector";
 import SortWorker from "./sort.worker?worker";
 import type { EncodeResponse, SortRequest, SortResponse } from "./sort.worker";
-import {
-  tempo,
-  type Audio,
-  type Direction,
-  type Measure,
-  type Target
-} from "./sort";
+import type { Audio, Direction, Measure, Target } from "./sort";
 
 export const modes = ["Tempo", "Time", "Transient"] as const;
 export const divisions = [
@@ -227,17 +222,9 @@ export class Sorter {
           }
 
           const buffer = await context.decodeAudioData(bytes.buffer);
+          const detected = await analyze(buffer).catch(() => null);
           if (stale) return;
           this.decoded = buffer;
-
-          const detected = tempo({
-            channels: Array.from(
-              { length: buffer.numberOfChannels },
-              (_, index) => buffer.getChannelData(index)
-            ),
-            sampleRate: buffer.sampleRate,
-            length: buffer.length
-          });
           if (detected) this.bpm = Math.round(detected);
         } catch {
           if (stale) return;
