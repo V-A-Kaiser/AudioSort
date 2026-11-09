@@ -1,3 +1,4 @@
+import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-svelte";
 import { grid, toWav } from "$lib/sort";
@@ -121,6 +122,82 @@ describe("Waveform", () => {
     ).toHaveLength(0);
   });
 
+  describe("dragging the waveform", () => {
+    const long = segments([0.2, 0.8, 0.5, 0.4], 2);
+    const scrub = async (screen: Awaited<ReturnType<typeof render>>) => {
+      await expect
+        .element(screen.getByRole("button", { name: "Play" }))
+        .toBeEnabled();
+
+      const wrapper = screen.container
+        .querySelector(".h-32 > div")!
+        .shadowRoot!.querySelector(".wrapper")!;
+      const box = wrapper.getBoundingClientRect();
+      const at = (fraction: number) => ({
+        clientX: box.left + box.width * fraction,
+        clientY: box.top + box.height / 2,
+        bubbles: true,
+        composed: true
+      });
+
+      return {
+        press: (fraction: number) =>
+          wrapper.dispatchEvent(new PointerEvent("pointerdown", at(fraction))),
+        move: (fraction: number) =>
+          document.dispatchEvent(new PointerEvent("pointermove", at(fraction))),
+        release: (fraction: number) =>
+          document.dispatchEvent(new PointerEvent("pointerup", at(fraction)))
+      };
+    };
+
+    it("plays only while the pointer moves", async () => {
+      const screen = await render(Waveform, {
+        file: toWav(long),
+        audio: long
+      });
+      const { press, move, release } = await scrub(screen);
+      const pause = screen.getByRole("button", { name: "Pause" });
+      const play = screen.getByRole("button", { name: "Play" });
+
+      press(0.1);
+      move(0.2);
+      await tick();
+      expect(pause.elements()).toHaveLength(1);
+      await expect.element(play).toBeInTheDocument();
+
+      move(0.3);
+      await tick();
+      expect(pause.elements()).toHaveLength(1);
+      release(0.3);
+      await expect.element(play).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(play.elements()).toHaveLength(1);
+    });
+
+    it("keeps playing afterwards when it was playing before", async () => {
+      const screen = await render(Waveform, {
+        file: toWav(long),
+        audio: long
+      });
+      const { press, move, release } = await scrub(screen);
+      const pause = screen.getByRole("button", { name: "Pause" });
+
+      await screen.getByRole("button", { name: "Play" }).click();
+      await expect.element(pause).toBeInTheDocument();
+
+      press(0.1);
+      move(0.2);
+      await expect
+        .element(screen.getByRole("button", { name: "Play" }))
+        .toBeInTheDocument();
+      release(0.2);
+      await tick();
+      expect(pause.elements()).toHaveLength(1);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(pause.elements()).toHaveLength(1);
+    });
+  });
+
   it("draws the slicing strip below the waveform when slicing", async () => {
     const above = await render(Waveform, {
       file,
@@ -226,6 +303,48 @@ describe("Waveform", () => {
 
     strip.scrollLeft = chunk * 4;
     await expect.element(screen.getByText("score 5")).toBeVisible();
+  });
+
+  it("follows the playhead only while the selection is partly out of view", async () => {
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      order: Array.from({ length: 16 }, (_, index) => index),
+      spans: grid(500, audio.length)
+    });
+    const select = screen.getByRole("button", { name: "Select chunks" });
+    await expect
+      .element(screen.getByRole("button", { name: "Play" }))
+      .toBeEnabled();
+
+    const strip = select.element().parentElement!;
+    const chunk = strip.clientWidth / 8;
+    const box = strip.getBoundingClientRect();
+    const at = (index: number) => ({
+      clientX: box.left + chunk * (index + 0.5),
+      clientY: box.top + box.height / 2,
+      bubbles: true
+    });
+    select.element().dispatchEvent(new PointerEvent("pointerdown", at(5)));
+    await new Promise(requestAnimationFrame);
+    window.dispatchEvent(new PointerEvent("pointermove", at(6)));
+    await expect
+      .element(screen.getByRole("button", { name: "Resize selection end" }))
+      .toHaveStyle({ left: `${chunk * 7}px` });
+    window.dispatchEvent(new PointerEvent("pointerup", at(6)));
+
+    await screen.getByRole("button", { name: "Play" }).click();
+    await expect
+      .element(screen.getByRole("button", { name: "Pause" }))
+      .toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(strip.scrollLeft).toBe(0);
+
+    strip.scrollLeft = chunk * 6;
+    await vi.waitFor(() => {
+      expect(strip.scrollLeft).toBeGreaterThan(0);
+      expect(strip.scrollLeft).toBeLessThanOrEqual(chunk * 3 + 1);
+    });
   });
 
   it("selects a dragged range of chunks and cancels it", async () => {

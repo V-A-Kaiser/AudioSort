@@ -290,6 +290,12 @@
 
   $effect(() => {
     if (!playing || dragging || !strip || !stripWidth) return;
+    if (
+      band &&
+      band.left >= offset - 1 &&
+      band.right <= offset + stripWidth + 1
+    )
+      return;
     strip.scrollLeft = playhead - stripWidth / 2;
   });
 
@@ -441,7 +447,7 @@
       progressColor: "#e5e5e5",
       cursorWidth: 0,
       normalize: true,
-      dragToSeek: true
+      dragToSeek: { debounceTime: 0 }
     });
 
     instance.on("ready", (seconds) => {
@@ -479,6 +485,25 @@
     instance.on("error", () => (error = "Could not decode this audio."));
     instance.on("interaction", () => void instance.play());
 
+    let resume = false;
+    let idle: ReturnType<typeof setTimeout>;
+    const hush = () => {
+      ramp(1, 0);
+      idle = setTimeout(() => instance.pause(), 14);
+    };
+    instance.on("dragstart", () => (resume = instance.isPlaying()));
+    instance.on("drag", () => {
+      clearTimeout(idle);
+      idle = setTimeout(hush, 100);
+    });
+    instance.on("dragend", () => {
+      clearTimeout(idle);
+      if (!resume) return hush();
+
+      void instance.play();
+      ramp(0, 1);
+    });
+
     void instance.loadBlob(
       file,
       decoded.channels.map((channel) => {
@@ -498,6 +523,7 @@
 
     return () => {
       host.removeEventListener("pointerdown", duck);
+      clearTimeout(idle);
 
       const media = player(instance);
       const node = media?.getGainNode();
