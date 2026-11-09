@@ -1,12 +1,7 @@
+import { analyze } from "web-audio-beat-detector";
 import SortWorker from "./sort.worker?worker";
-import type { SortRequest, SortResponse } from "./sort.worker";
-import {
-  tempo,
-  type Audio,
-  type Direction,
-  type Measure,
-  type Target
-} from "./sort";
+import type { EncodeResponse, SortRequest, SortResponse } from "./sort.worker";
+import type { Audio, Direction, Measure, Target } from "./sort";
 
 export const modes = ["Tempo", "Time", "Transient"] as const;
 export const divisions = [
@@ -85,9 +80,7 @@ export class Sorter {
   samples = $derived.by(() => {
     const requested =
       this.mode === "Tempo" && this.decoded && this.bpm > 0
-        ? Math.round(
-            (this.decoded.sampleRate * 60 * this.division.beats) / this.bpm
-          )
+        ? (this.decoded.sampleRate * 60 * this.division.beats) / this.bpm
         : Math.round(
             ((this.windowTime || 1000) * (this.decoded?.sampleRate ?? 44100)) /
               1000
@@ -133,6 +126,34 @@ export class Sorter {
     this.file = file;
   };
 
+  clear = () => {
+    this.file = null;
+    this.decoded = null;
+    this.sorted = null;
+  };
+
+  mp3 = () =>
+    new Promise<Blob | null>((resolve) => {
+      const instance = this.#worker!;
+      const id = ++this.#ticket;
+
+      const receive = ({
+        data
+      }: MessageEvent<SortResponse | EncodeResponse>) => {
+        if (data.id !== id || !("mp3" in data)) return;
+
+        instance.removeEventListener("message", receive);
+        resolve(data.mp3);
+      };
+
+      instance.addEventListener("message", receive);
+      instance.postMessage({
+        type: "encode",
+        id,
+        ...this.sorted!.audio
+      } satisfies SortRequest);
+    });
+
   constructor() {
     $effect(() => {
       const file = this.file;
@@ -143,20 +164,67 @@ export class Sorter {
       void (async () => {
         const context = new AudioContext();
         try {
-          const buffer = await context.decodeAudioData(
-            await file.arrayBuffer()
-          );
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const tagged = (() => {
+            const text = (at: number, length = 4) =>
+              String.fromCharCode(...bytes.subarray(at, at + length));
+            const start =
+              text(0, 3) === "ID3"
+                ? 10 +
+                  (((bytes[6] & 127) << 21) |
+                    ((bytes[7] & 127) << 14) |
+                    ((bytes[8] & 127) << 7) |
+                    (bytes[9] & 127))
+                : 0;
+            if (bytes[start] !== 0xff || bytes[start + 1] !== 0xfb) return null;
+
+            const bitrate = [
+              0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
+            ][bytes[start + 2] >> 4];
+            const rate = [44100, 48000, 32000][(bytes[start + 2] >> 2) & 3];
+            const tag = start + (bytes[start + 3] >> 6 === 3 ? 21 : 36);
+            if (
+              !bitrate ||
+              !rate ||
+              ["Xing", "Info"].includes(text(tag)) ||
+              text(start + 36) === "VBRI"
+            )
+              return null;
+
+            const size =
+              Math.floor((144000 * bitrate) / rate) +
+              ((bytes[start + 2] >> 1) & 1);
+            const blank = bytes
+              .subarray(start + 4, start + size)
+              .every((byte) => !byte);
+            const audio = bytes.subarray(start + (blank ? size : 0));
+            const frame = new Uint8Array(size);
+            const view = new DataView(frame.buffer);
+            const encoder = new TextEncoder();
+            frame.set(bytes.subarray(start, start + 4));
+            frame.set(encoder.encode("Info"), tag - start);
+            view.setUint32(tag - start + 4, 2);
+            view.setUint32(tag - start + 8, size + audio.length);
+            frame.set(encoder.encode("LAME3.100"), tag - start + 12);
+            view.setUint16(tag - start + 33, 576 << 4);
+
+            return new File(
+              [bytes.subarray(0, start), frame, audio],
+              file.name,
+              {
+                type: file.type
+              }
+            );
+          })();
+          if (tagged) {
+            if (!stale) this.file = tagged;
+            return;
+          }
+
+          const buffer = await context.decodeAudioData(bytes.buffer);
+          const detected = await analyze(buffer).catch(() => null);
           if (stale) return;
           this.decoded = buffer;
-
-          const detected = tempo({
-            channels: Array.from(
-              { length: buffer.numberOfChannels },
-              (_, index) => buffer.getChannelData(index)
-            ),
-            sampleRate: buffer.sampleRate,
-            length: buffer.length
-          });
           if (detected) this.bpm = Math.round(detected);
         } catch {
           if (stale) return;

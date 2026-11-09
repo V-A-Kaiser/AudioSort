@@ -58,6 +58,7 @@
         spans={sorter.sorted?.edges}
         {describe}
         slicing
+        onclear={sorter.clear}
       />
     </div>
   {:else}
@@ -78,6 +79,7 @@
       spans={sorter.sorted.spans}
       name={sorter.sorted.filename}
       download
+      mp3={sorter.mp3}
     />
   {/if}
 

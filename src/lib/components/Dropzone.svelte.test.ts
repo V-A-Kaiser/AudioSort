@@ -8,7 +8,7 @@ describe("Dropzone", () => {
     const screen = await render(Dropzone, { onfile: () => {} });
 
     await expect
-      .element(screen.getByText("Drop audio file here."))
+      .element(screen.getByText("Drop audio file here, or click to browse."))
       .toBeInTheDocument();
   });
 
@@ -19,9 +19,17 @@ describe("Dropzone", () => {
     });
 
     await expect.element(screen.getByText("Nope.")).toBeInTheDocument();
-    expect(screen.getByText("Drop audio file here.").elements()).toHaveLength(
-      0
-    );
+    expect(
+      screen.getByText("Drop audio file here, or click to browse.").elements()
+    ).toHaveLength(0);
+  });
+
+  it("lists the supported file types under the prompt", async () => {
+    const screen = await render(Dropzone, { onfile: () => {} });
+
+    await expect
+      .element(screen.getByText(/^Supported File Types:\s*WAV, MP3/))
+      .toBeInTheDocument();
   });
 
   it("hands over a browsed file", async () => {

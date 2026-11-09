@@ -9,7 +9,7 @@ describe("page", () => {
     const screen = await render(Page);
 
     await expect
-      .element(screen.getByText("Drop audio file here."))
+      .element(screen.getByText("Drop audio file here, or click to browse."))
       .toBeInTheDocument();
     await expect
       .element(screen.getByRole("radiogroup", { name: "Target" }))
@@ -34,7 +34,7 @@ describe("page", () => {
     );
 
     await expect
-      .element(screen.getByRole("link", { name: "Download" }), {
+      .element(screen.getByRole("link", { name: "Download WAV" }), {
         timeout: 10000
       })
       .toHaveAttribute("download", expect.stringMatching(/^tone-.*\.wav$/));
@@ -48,7 +48,7 @@ describe("page", () => {
       wavFile(segments([0.8, 0.2, 0.6, 0.4], 1))
     );
     await expect
-      .element(screen.getByRole("link", { name: "Download" }), {
+      .element(screen.getByRole("link", { name: "Download WAV" }), {
         timeout: 10000
       })
       .toBeInTheDocument();
@@ -64,8 +64,31 @@ describe("page", () => {
 
     expect(
       screen.container.querySelector(
-        'a[aria-label="Download"][download^="tone-"]'
+        'a[aria-label="Download WAV"][download^="tone-"]'
       )
     ).toBe(null);
+  });
+
+  it("returns to the dropzone when the audio is cleared", async () => {
+    const screen = await render(Page);
+
+    await userEvent.upload(
+      screen.container.querySelector("input[type=file]")!,
+      wavFile(segments([0.8, 0.2, 0.6, 0.4], 1))
+    );
+    await expect
+      .element(screen.getByRole("link", { name: "Download WAV" }), {
+        timeout: 10000
+      })
+      .toBeInTheDocument();
+
+    await screen.getByRole("button", { name: "Clear audio" }).click();
+
+    await expect
+      .element(screen.getByText("Drop audio file here, or click to browse."))
+      .toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Download WAV" }).elements()
+    ).toHaveLength(0);
   });
 });

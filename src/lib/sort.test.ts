@@ -3,6 +3,7 @@ import {
   beatPhase,
   chunkOrder,
   chunkScores,
+  grid,
   orderScores,
   stitchChunks,
   tempo,
@@ -376,6 +377,17 @@ describe("toWav", () => {
   });
 });
 
+describe("grid", () => {
+  it("follows a fractional window without drifting", () => {
+    const window = (48000 * 30) / 168;
+    const edges = grid(window, 48000 * 180);
+
+    expect(edges[7]).toBe(60000);
+    expect(edges[1001]).toBe(8580000);
+    expect(edges.every(Number.isInteger)).toBe(true);
+  });
+});
+
 describe("beatPhase", () => {
   const sampleRate = 44100;
   const beat = sampleRate / 2;
@@ -425,24 +437,28 @@ describe("beatPhase", () => {
     });
   });
 
-  it("anchors to the first kick when the tempo drifts from the grid", () => {
-    const spacing = Math.round(beat * 1.02);
-    const drifting: Audio = (() => {
-      const data = new Float32Array(lead + 16 * spacing);
-      for (let kick = 0; kick < 16; kick++) {
-        let phase = 0;
-        for (let index = 0; index < spacing; index++) {
-          const time = index / sampleRate;
-          const frequency = 50 + 100 * Math.exp(-time / 0.03);
-          phase += (2 * Math.PI * frequency) / sampleRate;
-          data[lead + kick * spacing + index] =
-            Math.exp(-time / 0.08) * Math.sin(phase);
-        }
-      }
+  it("lets every kick vote instead of anchoring to a stray first hit", () => {
+    const stray: Audio = (() => {
+      const data = track.channels[0].slice();
+      for (let index = 0; index < 2000; index++)
+        data[1500 + index] = Math.exp(-index / 300) * Math.sin(index / 2);
       return { channels: [data], sampleRate, length: data.length };
     })();
 
-    const early = (((lead - beatPhase(drifting, beat)) % beat) + beat) % beat;
+    expect(beatPhase(stray, beat)).toBe(beatPhase(track, beat));
+  });
+
+  it("follows a period that is not a whole number of samples", () => {
+    const period = beat + 0.4;
+    const data = new Float32Array(Math.ceil(lead + 40 * period));
+    for (let kick = 0; kick < 40; kick++) {
+      const start = Math.round(lead + kick * period);
+      for (let index = 0; index < 4000; index++)
+        data[start + index] = Math.exp(-index / 800) * Math.sin(index / 20);
+    }
+    const audio = { channels: [data], sampleRate, length: data.length };
+
+    const early = lead - beatPhase(audio, period);
     expect(early).toBeGreaterThanOrEqual(0);
     expect(early).toBeLessThan(3 * 128);
   });

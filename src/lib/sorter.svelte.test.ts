@@ -97,6 +97,39 @@ describe("Sorter", () => {
     expect(sorter.sorted).toBe(null);
   });
 
+  it("clears the file and its results without a notice", async () => {
+    const sorter = create();
+    sorter.take(wavFile(segments([0.8, 0.2])));
+    await vi.waitFor(() => expect(sorter.sorted).not.toBe(null), {
+      timeout: 5000
+    });
+
+    sorter.clear();
+    flushSync();
+
+    expect(sorter.file).toBe(null);
+    expect(sorter.decoded).toBe(null);
+    expect(sorter.sorted).toBe(null);
+    expect(sorter.notice).toBe(null);
+  });
+
+  it("encodes the sorted result as an MP3", async () => {
+    const sorter = create();
+    sorter.take(wavFile(segments([0.8, 0.2, 0.6, 0.4])));
+    await vi.waitFor(() => expect(sorter.sorted).not.toBe(null), {
+      timeout: 5000
+    });
+
+    const blob = (await sorter.mp3())!;
+
+    expect(blob.type).toBe("audio/mpeg");
+    const context = new AudioContext();
+    const decoded = await context.decodeAudioData(await blob.arrayBuffer());
+    void context.close();
+    expect(decoded.duration).toBeGreaterThan(0.95);
+    expect(decoded.duration).toBeLessThan(1.15);
+  });
+
   it("clamps the window to the length of the file", async () => {
     const sorter = create();
     sorter.windowTime = 1e9;

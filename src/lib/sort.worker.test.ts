@@ -278,6 +278,31 @@ describe("sort.worker", () => {
       );
   });
 
+  it("encodes the given audio as an MP3 without a loaded source", async () => {
+    const { posted, send } = await harness();
+    const tone = Float32Array.from({ length: 8000 }, (_, index) =>
+      Math.sin(index / 3)
+    );
+
+    send({
+      type: "encode",
+      id: 9,
+      channels: [tone, tone, tone],
+      sampleRate: 8000,
+      length: 8000
+    });
+    await vi.waitFor(() => expect(posted).toHaveLength(1));
+
+    const mp3 = posted[0].message.mp3 as Blob;
+    expect(posted[0].message.id).toBe(9);
+    expect(mp3.type).toBe("audio/mpeg");
+
+    const bytes = new Uint8Array(await mp3.arrayBuffer());
+    expect(bytes.length).toBeGreaterThan(1000);
+    expect(bytes[0]).toBe(0xff);
+    expect(bytes[1] & 0xe0).toBe(0xe0);
+  });
+
   it("slices a newly loaded source at its own transients", async () => {
     const { posted, send } = await harness();
     const struck = (hit: number) => {
