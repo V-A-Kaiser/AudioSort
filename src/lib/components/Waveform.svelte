@@ -4,7 +4,6 @@
   import Play from "@lucide/svelte/icons/play";
   import Pause from "@lucide/svelte/icons/pause";
   import Download from "@lucide/svelte/icons/download";
-  import Eraser from "@lucide/svelte/icons/eraser";
   import Scissors from "@lucide/svelte/icons/scissors";
   import X from "@lucide/svelte/icons/x";
   import type WebAudioPlayer from "wavesurfer.js/dist/webaudio";
@@ -643,20 +642,41 @@
 
 <div class="flex w-full max-w-xl flex-col gap-4">
   {#if name}
-    <p
-      bind:this={label}
-      bind:clientWidth={labelWidth}
-      class="text-sm text-neutral-300 {drift
-        ? 'overflow-hidden whitespace-nowrap'
-        : 'truncate'}"
-    >
-      <span
-        class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
-        style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
+    <div class="flex items-center gap-2">
+      <p
+        bind:this={label}
+        bind:clientWidth={labelWidth}
+        class="min-w-0 flex-1 text-sm text-neutral-300 {drift
+          ? 'overflow-hidden whitespace-nowrap'
+          : 'truncate'}"
       >
-        {name}
-      </span>
-    </p>
+        <span
+          class="inline-block whitespace-nowrap {drift ? 'animate-drift' : ''}"
+          style="--drift: -{drift}px; animation-duration: {2 + drift / 20}s"
+        >
+          {name}
+        </span>
+      </p>
+
+      {#if onclear}
+        <span class="group relative flex">
+          <button
+            type="button"
+            aria-label="Clear audio"
+            class="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-900 text-neutral-100 ring-1 ring-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+            onclick={onclear}
+          >
+            <X size={12} />
+          </button>
+          <span
+            aria-hidden="true"
+            class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
+          >
+            Clear Audio
+          </span>
+        </span>
+      {/if}
+    </div>
   {/if}
 
   {#if !slicing}
@@ -832,25 +852,6 @@
               </span>
             </span>
           {/if}
-        {/if}
-
-        {#if onclear}
-          <span class="group relative flex">
-            <button
-              type="button"
-              aria-label="Clear audio"
-              class="{button} cursor-pointer"
-              onclick={onclear}
-            >
-              <Eraser size={14} />
-            </button>
-            <span
-              aria-hidden="true"
-              class="tooltip right-0 bottom-full mb-2 w-auto whitespace-nowrap group-hover:opacity-100"
-            >
-              Clear Audio
-            </span>
-          </span>
         {/if}
       </div>
     </div>

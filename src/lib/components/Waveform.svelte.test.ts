@@ -28,7 +28,7 @@ describe("Waveform", () => {
   });
 
   it("draws the chunk strip only when given an order", async () => {
-    const plain = await render(Waveform, { file, audio });
+    const plain = await render(Waveform, { file, audio, name: "tone.wav" });
     expect(plain.container.querySelector("canvas.pointer-events-none")).toBe(
       null
     );
@@ -104,13 +104,18 @@ describe("Waveform", () => {
 
   it("offers to clear the audio only when asked", async () => {
     const onclear = vi.fn();
-    const screen = await render(Waveform, { file, audio, onclear });
+    const screen = await render(Waveform, {
+      file,
+      audio,
+      name: "tone.wav",
+      onclear
+    });
 
     await screen.getByRole("button", { name: "Clear audio" }).click();
     expect(onclear).toHaveBeenCalledTimes(1);
     await screen.unmount();
 
-    const plain = await render(Waveform, { file, audio });
+    const plain = await render(Waveform, { file, audio, name: "tone.wav" });
     expect(
       plain.getByRole("button", { name: "Clear audio" }).elements()
     ).toHaveLength(0);
