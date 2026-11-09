@@ -16,7 +16,7 @@ export const grid = (layout: number | number[], length: number, origin = 0) =>
   typeof layout === "number"
     ? Array.from(
         { length: Math.ceil((length - origin) / layout) + 1 },
-        (_, index) => origin + index * layout
+        (_, index) => Math.round(origin + index * layout)
       )
     : layout;
 
@@ -170,23 +170,33 @@ const onsets = (audio: Audio, hop: number, log = false) => {
   }
 
   const rises = new Float64Array(frames);
-  let strongest = 0;
-  for (let frame = 1; frame < frames; frame++) {
+  for (let frame = 1; frame < frames; frame++)
     rises[frame] = Math.max(0, level[frame] - level[frame - 1]);
-    strongest = Math.max(strongest, rises[frame]);
-  }
 
-  const average = level.reduce((sum, value) => sum + value, 0) / frames;
-  return { level, rises, strongest, average };
+  return { level, rises };
 };
 
 export const beatPhase = (audio: Audio, windowSize: number) => {
   const hop = 128;
-  const { rises, strongest, average } = onsets(audio, hop);
-  if (!strongest || strongest < 0.5 * average) return 0;
+  const decay = Math.exp(-hop / (0.12 * audio.sampleRate));
+  const votes = new Float64Array(Math.ceil(windowSize / hop));
+  let envelope = 0;
 
-  const first = rises.findIndex((rise) => rise >= 0.3 * strongest);
-  return ((((first - 1) * hop) % windowSize) + windowSize) % windowSize;
+  for (let start = 0; start + hop <= audio.length; start += hop) {
+    let peak = 0;
+    for (const channel of audio.channels)
+      for (let i = start; i < start + hop; i++)
+        peak = Math.max(peak, Math.abs(channel[i]));
+
+    if (peak > envelope)
+      votes[Math.floor((start % windowSize) / hop)] += peak - envelope;
+    envelope = Math.max(peak, envelope * decay);
+  }
+
+  return (
+    votes.reduce((best, vote, bin) => (vote > votes[best] ? bin : best), 0) *
+    hop
+  );
 };
 
 export const tempo = (audio: Audio) => {
@@ -209,14 +219,18 @@ export const tempo = (audio: Audio) => {
       sum += (rises[frame] - mean) * (rises[frame + lag] - mean);
     return sum / (frames - lag);
   });
-  const weigh = (index: number) =>
-    scores[index] *
-    Math.exp(-0.5 * Math.log2((60 * fps) / (shortest - 1 + index) / 120) ** 2);
+  const pairs = scores
+    .slice(1, -1)
+    .map((score, index) => score + scores[index + 2]);
+  const top = Math.max(...pairs);
+  if (top <= 0) return null;
 
-  let best = 1;
-  for (let index = 2; index < scores.length - 1; index++)
-    if (weigh(index) > weigh(best)) best = index;
-  if (scores[best] <= 0) return null;
+  let pair = pairs.findIndex((score) => score >= 0.9 * top);
+  while (pairs[pair + 1] > pairs[pair]) pair++;
+  const best =
+    pair + 2 < scores.length - 1 && scores[pair + 2] > scores[pair + 1]
+      ? pair + 2
+      : pair + 1;
 
   const [before, peak, after] = scores.slice(best - 1, best + 2);
   const shift = (before - after) / (2 * (before - 2 * peak + after)) || 0;
